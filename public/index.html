@@ -16,7 +16,6 @@
       color:white;
     }
 
-    /* HEADER */
     #top {
       height:50px;
       background:#202c33;
@@ -24,48 +23,10 @@
       align-items:center;
       justify-content:space-between;
       padding:0 12px;
-      flex-shrink:0;
-      z-index:10;
     }
 
-    #menuBtn {
-      font-size:22px;
-      cursor:pointer;
-    }
+    #menuBtn { cursor:pointer; font-size:22px; }
 
-    #icons span {
-      margin-left:10px;
-      cursor:pointer;
-    }
-
-    /* SIDEBAR */
-    #sidebar {
-      position:fixed;
-      left:-250px;
-      top:0;
-      width:250px;
-      height:100%;
-      background:#202c33;
-      padding:10px;
-      transition:0.3s;
-      z-index:20;
-    }
-
-    #sidebar.active {
-      left:0;
-    }
-
-    #users {
-      list-style:none;
-      margin-top:10px;
-    }
-
-    #users li {
-      padding:8px;
-      border-bottom:1px solid #333;
-    }
-
-    /* CHAT */
     #chat {
       flex:1;
       overflow-y:auto;
@@ -81,15 +42,8 @@
       max-width:75%;
     }
 
-    .me {
-      background:#005c4b;
-      align-self:flex-end;
-    }
-
-    .other {
-      background:#202c33;
-      align-self:flex-start;
-    }
+    .me { background:#005c4b; align-self:flex-end; }
+    .other { background:#202c33; align-self:flex-start; }
 
     .system {
       text-align:center;
@@ -97,19 +51,34 @@
       color:#aaa;
     }
 
-    img {
-      max-width:200px;
+    /* 🔥 IMAGE SMALL PREVIEW */
+    .chat-img {
+      max-width:120px;
       border-radius:10px;
+      cursor:pointer;
     }
 
-    /* INPUT */
+    /* FULL VIEW */
+    #viewer {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.9);
+      display:none;
+      justify-content:center;
+      align-items:center;
+      z-index:100;
+    }
+
+    #viewer img {
+      max-width:90%;
+      max-height:90%;
+    }
+
     #inputBox {
       display:flex;
       gap:5px;
       padding:8px;
       background:#202c33;
-      position:sticky;
-      bottom:0;
     }
 
     #msg {
@@ -117,7 +86,6 @@
       padding:10px;
       border:none;
       border-radius:20px;
-      outline:none;
     }
 
     #sendBtn {
@@ -126,7 +94,6 @@
       border-radius:50%;
       background:#00a884;
       color:white;
-      font-size:16px;
     }
 
     #file { display:none; }
@@ -136,32 +103,23 @@
 
 <body>
 
-<!-- SIDEBAR -->
-<div id="sidebar">
-  <h3>🟢 Users</h3>
-  <ul id="users"></ul>
-</div>
-
-<!-- HEADER -->
 <div id="top">
   <span id="menuBtn">☰ ChatBubble</span>
-
-  <div id="icons">
-    <span onclick="alert('Messages coming soon')">💬</span>
-    <span onclick="alert('Notifications coming soon')">🔔</span>
-    <span onclick="logout()">👤</span>
-  </div>
+  <div>💬 🔔 👤</div>
 </div>
 
-<!-- CHAT -->
 <div id="chat"></div>
 
-<!-- INPUT -->
 <div id="inputBox">
   <input id="msg" placeholder="Type message..." />
   <input type="file" id="file" accept="image/*" onchange="sendImage()" />
   <button onclick="pick()">📎</button>
   <button id="sendBtn" onclick="sendMsg()">➤</button>
+</div>
+
+<!-- FULL IMAGE VIEW -->
+<div id="viewer" onclick="this.style.display='none'">
+  <img id="fullImg">
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -170,25 +128,7 @@
 const socket = io();
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
-const sidebar = document.getElementById("sidebar");
-const usersList = document.getElementById("users");
 
-
-// 🔥 SIDEBAR TOGGLE
-document.getElementById("menuBtn").onclick = (e) => {
-  e.stopPropagation();
-  sidebar.classList.toggle("active");
-};
-
-// click outside close
-document.addEventListener("click", (e) => {
-  if (!sidebar.contains(e.target) && e.target.id !== "menuBtn") {
-    sidebar.classList.remove("active");
-  }
-});
-
-
-// 🔥 USER LOGIN
 let username = localStorage.getItem("username");
 if(!username){
   username = prompt("Enter name") || "Guest";
@@ -197,29 +137,35 @@ if(!username){
 
 socket.emit("join", { name: username });
 
-
-// 🔥 LOGOUT
-function logout(){
-  localStorage.removeItem("username");
-  location.reload();
+function scrollDown(){
+  chat.scrollTop = chat.scrollHeight;
 }
 
-
-// 🔥 MESSAGE
 function addMsg(type,text){
   let div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerText = text;
+  div.className="msg "+type;
+  div.innerText=text;
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  scrollDown();
 }
 
+/* 🔥 IMAGE PREVIEW + CLICK FULL */
 function addImage(type,src){
   let div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerHTML = `<img src="${src}">`;
+  div.className="msg "+type;
+
+  let img = document.createElement("img");
+  img.src = src;
+  img.className = "chat-img";
+
+  img.onclick = ()=>{
+    document.getElementById("viewer").style.display="flex";
+    document.getElementById("fullImg").src = src;
+  };
+
+  div.appendChild(img);
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  scrollDown();
 }
 
 function sendMsg(){
@@ -229,55 +175,64 @@ function sendMsg(){
   msgInput.value="";
 }
 
-
-// 🔥 FILE
-function pick(){
-  document.getElementById("file").click();
-}
-
+/* 🔥 FAST IMAGE SEND (COMPRESS) */
 function sendImage(){
   let file = document.getElementById("file").files[0];
   if(!file) return;
 
+  let img = new Image();
   let reader = new FileReader();
-  reader.onload = (e)=>{
-    socket.emit("image", e.target.result);
+
+  reader.onload = function(e){
+    img.src = e.target.result;
   };
+
+  img.onload = function(){
+    let canvas = document.createElement("canvas");
+    let ctx = canvas.getContext("2d");
+
+    let maxWidth = 400; // 🔥 compression size
+    let scale = maxWidth / img.width;
+
+    canvas.width = maxWidth;
+    canvas.height = img.height * scale;
+
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+    let compressed = canvas.toDataURL("image/jpeg",0.6); // 🔥 compression
+    socket.emit("image", compressed);
+  };
+
   reader.readAsDataURL(file);
 }
 
+function pick(){
+  document.getElementById("file").click();
+}
 
-// 🔥 SOCKET EVENTS
-socket.on("message", (data)=>{
-  if(data.user === username){
-    addMsg("me", data.text);
+/* SOCKET */
+
+socket.on("message",(data)=>{
+  if(data.user===username){
+    addMsg("me",data.text);
   } else {
-    addMsg("other", data.user + ": " + data.text);
+    addMsg("other",data.user+": "+data.text);
   }
 });
 
-socket.on("image", (data)=>{
-  if(data.user === username){
-    addImage("me", data.src);
+socket.on("image",(data)=>{
+  if(data.user===username){
+    addImage("me",data.src);
   } else {
-    addImage("other", data.src);
+    addImage("other",data.src);
   }
 });
 
-socket.on("system", (data)=>{
-  let div = document.createElement("div");
+socket.on("system",(data)=>{
+  let div=document.createElement("div");
   div.className="system";
   div.innerText=data.text;
   chat.appendChild(div);
-});
-
-socket.on("users", (users)=>{
-  usersList.innerHTML="";
-  Object.values(users).forEach(u=>{
-    let li = document.createElement("li");
-    li.innerText = u.name;
-    usersList.appendChild(li);
-  });
 });
 
 </script>
