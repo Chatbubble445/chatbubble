@@ -10,8 +10,9 @@ app.use(express.static("public"));
 
 let users = {};
 let lastMessage = {};
+let messages = [];
 
-// 🏆 Rank system
+// 🏆 Rank
 function getRank(time){
     if(time > 20000) return "💎 Diamond";
     if(time > 10000) return "🥇 Gold";
@@ -21,21 +22,19 @@ function getRank(time){
 
 io.on("connection", (socket) => {
 
-    // Default user
     users[socket.id] = {
         name: "Guest" + Math.floor(Math.random()*10000),
         time: 0,
         room: "global"
     };
 
-    // ⏱️ Time tracking
     const interval = setInterval(() => {
         if(users[socket.id]){
             users[socket.id].time += 60;
         }
     }, 60000);
 
-    // 🔗 JOIN ROOM
+    // JOIN
     socket.on("join", ({name, room}) => {
 
         if(name) users[socket.id].name = name;
@@ -43,7 +42,16 @@ io.on("connection", (socket) => {
 
         socket.join(room);
 
-        // 🔥 JOIN MESSAGE
+        // 🔥 SEND OLD MESSAGES
+        messages.forEach(msg => {
+            if(msg.type === "image"){
+                socket.emit("image", msg);
+            } else {
+                socket.emit("message", msg);
+            }
+        });
+
+        // JOIN MSG
         io.to(room).emit("system", {
             text: "🟢 " + users[socket.id].name + " joined the room"
         });
@@ -51,34 +59,40 @@ io.on("connection", (socket) => {
         io.emit("users", users);
     });
 
-    // 💬 TEXT MESSAGE
+    // MESSAGE
     socket.on("message", (msg) => {
         const user = users[socket.id];
-        if(!user) return;
-
-        // 🚫 Spam protection
         if(!msg || msg === lastMessage[socket.id]) return;
+
         lastMessage[socket.id] = msg;
 
-        io.to(user.room).emit("message", {
+        const data = {
             user: user.name,
             rank: getRank(user.time),
             text: msg
-        });
+        };
+
+        messages.push(data);
+
+        io.to(user.room).emit("message", data);
     });
 
-    // 🖼️ IMAGE / GIF
+    // IMAGE
     socket.on("image", (img) => {
         const user = users[socket.id];
-        if(!user) return;
 
-        io.to(user.room).emit("image", {
+        const data = {
+            type:"image",
             user: user.name,
             src: img
-        });
+        };
+
+        messages.push(data);
+
+        io.to(user.room).emit("image", data);
     });
 
-    // ❌ DISCONNECT
+    // DISCONNECT
     socket.on("disconnect", () => {
         const user = users[socket.id];
 
@@ -98,7 +112,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-    console.log("Server running on port " + PORT);
-});
+server.listen(PORT);
