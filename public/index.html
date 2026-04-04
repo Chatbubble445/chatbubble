@@ -31,10 +31,10 @@ body{
   left:0;
 }
 
-/* MENU BUTTON */
-#menuBtn{
-  font-size:22px;
-  cursor:pointer;
+/* USERS */
+#users li{
+  padding:10px;
+  border-bottom:1px solid #333;
 }
 
 /* MAIN */
@@ -52,6 +52,11 @@ body{
   gap:10px;
   background:#202c33;
   padding:10px;
+}
+
+#menuBtn{
+  font-size:22px;
+  cursor:pointer;
 }
 
 /* CHAT */
@@ -82,8 +87,8 @@ body{
 
 .system{
   text-align:center;
-  font-size:12px;
   color:#aaa;
+  font-size:12px;
 }
 
 /* INPUT */
@@ -99,7 +104,6 @@ body{
   padding:10px;
 }
 
-/* BUTTON */
 button{
   background:#00a884;
   color:white;
@@ -136,18 +140,16 @@ button{
 <div id="main">
 
   <div id="top">
-    <span id="menuBtn" onclick="toggleSidebar()">☰</span>
+    <span id="menuBtn">☰</span>
     ChatBubble
   </div>
 
   <div id="chat"></div>
 
-  <!-- PROGRESS -->
   <div id="progressContainer">
     <div id="progressBar"></div>
   </div>
 
-  <!-- INPUT -->
   <div id="inputBox">
     <input id="msg" placeholder="Type message">
     <input type="file" id="file" onchange="sendImage()">
@@ -160,11 +162,31 @@ button{
 <script>
 const socket = io();
 
-/* SIDEBAR TOGGLE */
-function toggleSidebar(){
-  document.getElementById("sidebar").classList.toggle("active");
-}
+/* SIDEBAR FIX */
+const sidebar = document.getElementById("sidebar");
+const menuBtn = document.getElementById("menuBtn");
 
+menuBtn.onclick = function(e){
+  e.stopPropagation();
+  sidebar.classList.toggle("active");
+};
+
+/* CLICK OUTSIDE CLOSE */
+document.addEventListener("click", function(e){
+  if(
+    sidebar.classList.contains("active") &&
+    !sidebar.contains(e.target)
+  ){
+    sidebar.classList.remove("active");
+  }
+});
+
+/* PREVENT CLOSE WHEN INSIDE */
+sidebar.addEventListener("click", function(e){
+  e.stopPropagation();
+});
+
+/* USER */
 let username = localStorage.getItem("username");
 
 if(!username){
@@ -183,7 +205,7 @@ function sendMsg(){
   input.value="";
 }
 
-/* SEND IMAGE WITH % */
+/* IMAGE WITH % */
 function sendImage(){
   const file=document.getElementById("file").files[0];
   if(!file) return;
