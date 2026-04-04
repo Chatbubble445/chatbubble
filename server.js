@@ -9,6 +9,7 @@ const io = socketIo(server);
 app.use(express.static("public"));
 
 let users = {};
+let lastMessages = {};
 
 function getRank(time){
     if(time > 20000) return "💎 Diamond";
@@ -19,12 +20,11 @@ function getRank(time){
 
 io.on("connection", (socket) => {
 
-    users[socket.id] = { name: "", time: 0 };
-
-    socket.on("join", (username) => {
-        users[socket.id].name = username;
-        io.emit("users", users);
-    });
+    users[socket.id] = {
+        name: "User" + Math.floor(Math.random()*10000),
+        time: 0,
+        room: "global"
+    };
 
     // time tracking
     setInterval(() => {
@@ -33,9 +33,23 @@ io.on("connection", (socket) => {
         }
     }, 60000);
 
+    socket.on("join", ({name, room}) => {
+        users[socket.id].name = name || users[socket.id].name;
+        users[socket.id].room = room;
+
+        socket.join(room);
+
+        io.emit("users", users);
+    });
+
     socket.on("message", (msg) => {
         const user = users[socket.id];
-        io.emit("message", {
+
+        // spam control
+        if(!msg || msg === lastMessages[socket.id]) return;
+        lastMessages[socket.id] = msg;
+
+        io.to(user.room).emit("message", {
             user: user.name,
             rank: getRank(user.time),
             text: msg
