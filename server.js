@@ -10,25 +10,35 @@ app.use(express.static("public"));
 
 let users = {};
 
+function getRank(time){
+    if(time > 20000) return "💎 Diamond";
+    if(time > 10000) return "🥇 Gold";
+    if(time > 5000) return "🥈 Silver";
+    return "🥉 Bronze";
+}
+
 io.on("connection", (socket) => {
 
+    users[socket.id] = { name: "", time: 0 };
+
     socket.on("join", (username) => {
-        users[socket.id] = username;
+        users[socket.id].name = username;
         io.emit("users", users);
     });
 
-    socket.on("message", (msg) => {
-        io.emit("message", {
-            user: users[socket.id],
-            text: msg
-        });
-    });
+    // time tracking
+    setInterval(() => {
+        if(users[socket.id]){
+            users[socket.id].time += 60;
+        }
+    }, 60000);
 
-    // 🔥 PRIVATE CHAT
-    socket.on("privateMessage", ({to, message}) => {
-        io.to(to).emit("privateMessage", {
-            user: users[socket.id],
-            text: message
+    socket.on("message", (msg) => {
+        const user = users[socket.id];
+        io.emit("message", {
+            user: user.name,
+            rank: getRank(user.time),
+            text: msg
         });
     });
 
@@ -36,6 +46,7 @@ io.on("connection", (socket) => {
         delete users[socket.id];
         io.emit("users", users);
     });
+
 });
 
 const PORT = process.env.PORT || 3000;
