@@ -3,7 +3,7 @@
 <head>
   <title>ChatBubble</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
+
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
 
@@ -25,6 +25,7 @@
       justify-content:space-between;
       padding:0 12px;
       flex-shrink:0;
+      z-index:10;
     }
 
     #menuBtn {
@@ -32,7 +33,39 @@
       cursor:pointer;
     }
 
-    /* CHAT AREA */
+    #icons span {
+      margin-left:10px;
+      cursor:pointer;
+    }
+
+    /* SIDEBAR */
+    #sidebar {
+      position:fixed;
+      left:-250px;
+      top:0;
+      width:250px;
+      height:100%;
+      background:#202c33;
+      padding:10px;
+      transition:0.3s;
+      z-index:20;
+    }
+
+    #sidebar.active {
+      left:0;
+    }
+
+    #users {
+      list-style:none;
+      margin-top:10px;
+    }
+
+    #users li {
+      padding:8px;
+      border-bottom:1px solid #333;
+    }
+
+    /* CHAT */
     #chat {
       flex:1;
       overflow-y:auto;
@@ -69,7 +102,7 @@
       border-radius:10px;
     }
 
-    /* INPUT BOX FIXED */
+    /* INPUT */
     #inputBox {
       display:flex;
       gap:5px;
@@ -103,16 +136,27 @@
 
 <body>
 
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <h3>🟢 Users</h3>
+  <ul id="users"></ul>
+</div>
+
 <!-- HEADER -->
 <div id="top">
   <span id="menuBtn">☰ ChatBubble</span>
-  <div>💬 🔔 👤</div>
+
+  <div id="icons">
+    <span onclick="alert('Messages coming soon')">💬</span>
+    <span onclick="alert('Notifications coming soon')">🔔</span>
+    <span onclick="logout()">👤</span>
+  </div>
 </div>
 
 <!-- CHAT -->
 <div id="chat"></div>
 
-<!-- INPUT (FIXED) -->
+<!-- INPUT -->
 <div id="inputBox">
   <input id="msg" placeholder="Type message..." />
   <input type="file" id="file" accept="image/*" onchange="sendImage()" />
@@ -126,7 +170,25 @@
 const socket = io();
 const chat = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
+const sidebar = document.getElementById("sidebar");
+const usersList = document.getElementById("users");
 
+
+// 🔥 SIDEBAR TOGGLE
+document.getElementById("menuBtn").onclick = (e) => {
+  e.stopPropagation();
+  sidebar.classList.toggle("active");
+};
+
+// click outside close
+document.addEventListener("click", (e) => {
+  if (!sidebar.contains(e.target) && e.target.id !== "menuBtn") {
+    sidebar.classList.remove("active");
+  }
+});
+
+
+// 🔥 USER LOGIN
 let username = localStorage.getItem("username");
 if(!username){
   username = prompt("Enter name") || "Guest";
@@ -135,6 +197,15 @@ if(!username){
 
 socket.emit("join", { name: username });
 
+
+// 🔥 LOGOUT
+function logout(){
+  localStorage.removeItem("username");
+  location.reload();
+}
+
+
+// 🔥 MESSAGE
 function addMsg(type,text){
   let div = document.createElement("div");
   div.className = "msg " + type;
@@ -158,6 +229,8 @@ function sendMsg(){
   msgInput.value="";
 }
 
+
+// 🔥 FILE
 function pick(){
   document.getElementById("file").click();
 }
@@ -173,6 +246,8 @@ function sendImage(){
   reader.readAsDataURL(file);
 }
 
+
+// 🔥 SOCKET EVENTS
 socket.on("message", (data)=>{
   if(data.user === username){
     addMsg("me", data.text);
@@ -194,6 +269,15 @@ socket.on("system", (data)=>{
   div.className="system";
   div.innerText=data.text;
   chat.appendChild(div);
+});
+
+socket.on("users", (users)=>{
+  usersList.innerHTML="";
+  Object.values(users).forEach(u=>{
+    let li = document.createElement("li");
+    li.innerText = u.name;
+    usersList.appendChild(li);
+  });
 });
 
 </script>
