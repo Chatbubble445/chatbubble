@@ -8,26 +8,57 @@ body {
   margin:0;
   font-family: Arial;
   background:#0b141a;
-  display:flex;
-  justify-content:center;
+  overflow:hidden;
 }
 
-/* Main container */
+/* App container */
 #app {
-  width:100%;
-  max-width:500px;
+  display:flex;
   height:100vh;
+}
+
+/* Sidebar */
+#sidebar {
+  width:250px;
+  background:#202c33;
+  position:absolute;
+  left:-250px;
+  top:0;
+  height:100%;
+  transition:0.3s;
+  padding:10px;
+}
+
+#sidebar.open {
+  left:0;
+}
+
+#users li {
+  padding:10px;
+  border-bottom:1px solid #333;
+}
+
+/* Main */
+#main {
+  flex:1;
   display:flex;
   flex-direction:column;
-  background:#111b21;
 }
 
 /* Top bar */
 #top {
-  padding:10px;
   background:#202c33;
+  padding:10px;
+  display:flex;
+  justify-content:space-between;
 }
 
+.icon {
+  margin-left:10px;
+  cursor:pointer;
+}
+
+/* Chat */
 #chat {
   flex:1;
   overflow-y:auto;
@@ -55,4 +86,147 @@ body {
 #inputBox {
   display:flex;
   padding:10px;
-  background
+  background:#202c33;
+}
+
+input {
+  flex:1;
+  padding:10px;
+}
+
+button {
+  padding:10px;
+}
+</style>
+
+</head>
+<body>
+
+<div id="app">
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <h3>🟢 Online Users</h3>
+  <ul id="users"></ul>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+<div id="top">
+  <span onclick="toggleSidebar()">☰ ChatBubble</span>
+
+  <div>
+    <span class="icon">💬</span>
+    <span class="icon" onclick="logout()">🚪</span>
+  </div>
+</div>
+
+<div id="chat"></div>
+
+<div id="inputBox">
+  <input id="msg" placeholder="Type message">
+
+  <!-- Image upload -->
+  <input type="file" id="file" accept="image/*" onchange="sendImage()">
+
+  <button onclick="sendMsg()">➤</button>
+</div>
+
+</div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+let username = prompt("Enter name") || "Guest" + Math.floor(Math.random()*1000);
+
+socket.emit("join", {name: username, room: "global"});
+
+// Sidebar toggle
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("open");
+}
+
+// Logout
+function logout(){
+  location.reload();
+}
+
+// Send message
+function sendMsg(){
+  const msg = document.getElementById("msg").value;
+  if(!msg) return;
+
+  socket.emit("message", msg);
+  addMsg("me", msg);
+}
+
+// Send image
+function sendImage(){
+  const file = document.getElementById("file").files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+    socket.emit("image", e.target.result);
+    addImage("me", e.target.result);
+  };
+
+  reader.readAsDataURL(file);
+}
+
+// Add message
+function addMsg(type, text){
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+  div.innerText = text;
+
+  document.getElementById("chat").appendChild(div);
+  scrollDown();
+}
+
+// Add image
+function addImage(type, src){
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.maxWidth = "100%";
+
+  div.appendChild(img);
+  document.getElementById("chat").appendChild(div);
+  scrollDown();
+}
+
+function scrollDown(){
+  document.getElementById("chat").scrollTop = 999999;
+}
+
+// Receive msg
+socket.on("message", (data) => {
+  addMsg("other", data.user + ": " + data.text);
+});
+
+// Receive image
+socket.on("image", (src) => {
+  addImage("other", src);
+});
+
+// Users list
+socket.on("users", (users) => {
+  const ul = document.getElementById("users");
+  ul.innerHTML = "";
+
+  Object.values(users).forEach(u => {
+    const li = document.createElement("li");
+    li.innerText = u.name;
+    ul.appendChild(li);
+  });
+});
+</script>
+
+</body>
+</html>
