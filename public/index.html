@@ -8,10 +8,10 @@ body {
   margin:0;
   font-family: Arial;
   background:#0b141a;
-  overflow:hidden;
+  color:white;
 }
 
-/* App container */
+/* Layout */
 #app {
   display:flex;
   height:100vh;
@@ -21,12 +21,13 @@ body {
 #sidebar {
   width:250px;
   background:#202c33;
-  position:absolute;
+  position:fixed;
   left:-250px;
   top:0;
   height:100%;
   transition:0.3s;
   padding:10px;
+  z-index:10;
 }
 
 #sidebar.open {
@@ -63,6 +64,7 @@ body {
   flex:1;
   overflow-y:auto;
   padding:10px;
+  margin-bottom:70px; /* FIX */
 }
 
 /* Messages */
@@ -84,18 +86,28 @@ body {
 
 /* Input */
 #inputBox {
+  position:fixed;
+  bottom:0;
+  left:0;
+  width:100%;
   display:flex;
   padding:10px;
   background:#202c33;
 }
 
-input {
+#msg {
   flex:1;
   padding:10px;
+  border:none;
 }
 
 button {
   padding:10px;
+}
+
+img {
+  max-width:100%;
+  border-radius:10px;
 }
 </style>
 
@@ -127,7 +139,7 @@ button {
 <div id="inputBox">
   <input id="msg" placeholder="Type message">
 
-  <!-- Image upload -->
+  <!-- Image -->
   <input type="file" id="file" accept="image/*" onchange="sendImage()">
 
   <button onclick="sendMsg()">➤</button>
@@ -143,9 +155,10 @@ const socket = io();
 
 let username = prompt("Enter name") || "Guest" + Math.floor(Math.random()*1000);
 
+// Join default
 socket.emit("join", {name: username, room: "global"});
 
-// Sidebar toggle
+// Sidebar
 function toggleSidebar(){
   document.getElementById("sidebar").classList.toggle("open");
 }
@@ -155,18 +168,22 @@ function logout(){
   location.reload();
 }
 
-// Send message
+// Send text
 function sendMsg(){
   const msg = document.getElementById("msg").value;
   if(!msg) return;
 
   socket.emit("message", msg);
   addMsg("me", msg);
+
+  document.getElementById("msg").value = "";
 }
 
-// Send image
+// Send image/GIF
 function sendImage(){
   const file = document.getElementById("file").files[0];
+  if(!file) return;
+
   const reader = new FileReader();
 
   reader.onload = function(e){
@@ -177,7 +194,7 @@ function sendImage(){
   reader.readAsDataURL(file);
 }
 
-// Add message
+// Add text
 function addMsg(type, text){
   const div = document.createElement("div");
   div.className = "msg " + type;
@@ -194,28 +211,29 @@ function addImage(type, src){
 
   const img = document.createElement("img");
   img.src = src;
-  img.style.maxWidth = "100%";
 
   div.appendChild(img);
   document.getElementById("chat").appendChild(div);
+
   scrollDown();
 }
 
+// Scroll
 function scrollDown(){
   document.getElementById("chat").scrollTop = 999999;
 }
 
-// Receive msg
+// Receive message
 socket.on("message", (data) => {
-  addMsg("other", data.user + ": " + data.text);
+  addMsg("other", data.rank + " " + data.user + ": " + data.text);
 });
 
 // Receive image
-socket.on("image", (src) => {
-  addImage("other", src);
+socket.on("image", (data) => {
+  addImage("other", data.src);
 });
 
-// Users list
+// Users
 socket.on("users", (users) => {
   const ul = document.getElementById("users");
   ul.innerHTML = "";
