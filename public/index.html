@@ -4,54 +4,58 @@
 <title>ChatBubble</title>
 
 <style>
-body {
+body{
   margin:0;
-  font-family: Arial;
-  background:#0b141a;
-  color:white;
-  display:flex;
+  font-family:Arial;
   height:100vh;
+  overflow:hidden;
+
+  background:url("https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2") no-repeat center center fixed;
+  background-size:cover;
 }
 
-/* LEFT USERS */
-#sidebar {
+/* SIDEBAR */
+#sidebar{
+  position:fixed;
+  left:-250px;
+  top:0;
   width:250px;
+  height:100%;
   background:#202c33;
-  overflow-y:auto;
+  transition:0.3s;
   padding:10px;
-  border-right:1px solid #333;
+  z-index:2;
 }
 
-#sidebar h3 {
-  margin-top:0;
+#sidebar.active{
+  left:0;
 }
 
-#users li {
-  padding:10px;
-  border-bottom:1px solid #333;
+/* MENU BUTTON */
+#menuBtn{
+  font-size:22px;
   cursor:pointer;
 }
 
-#users li:hover {
-  background:#2a3942;
-}
-
-/* RIGHT CHAT */
-#main {
-  flex:1;
+/* MAIN */
+#main{
+  height:100%;
   display:flex;
   flex-direction:column;
+  background:rgba(11,20,26,0.8);
 }
 
-/* Top */
-#top {
+/* TOP */
+#top{
+  display:flex;
+  align-items:center;
+  gap:10px;
   background:#202c33;
   padding:10px;
-  font-weight:bold;
 }
 
-/* Chat */
-#chat {
+/* CHAT */
+#chat{
   flex:1;
   overflow-y:auto;
   padding:10px;
@@ -59,89 +63,91 @@ body {
   flex-direction:column;
 }
 
-/* Messages */
-.msg {
+/* MSG */
+.msg{
   padding:10px;
   margin:5px;
   border-radius:10px;
   max-width:70%;
-  word-wrap:break-word;
 }
 
-.me {
+.me{
   background:#005c4b;
   align-self:flex-end;
 }
 
-.other {
+.other{
   background:#202c33;
-  align-self:flex-start;
 }
 
-.system {
+.system{
   text-align:center;
-  color:gray;
   font-size:12px;
+  color:#aaa;
 }
 
-/* Input */
-#inputBox {
+/* INPUT */
+#inputBox{
   display:flex;
+  gap:5px;
   padding:10px;
   background:#202c33;
-  gap:5px;
 }
 
-#msg {
+#msg{
   flex:1;
   padding:10px;
-  border:none;
-  border-radius:5px;
 }
 
-button {
-  padding:10px;
+/* BUTTON */
+button{
   background:#00a884;
   color:white;
   border:none;
-  border-radius:5px;
+  padding:10px;
 }
 
-/* Progress */
-#progressContainer {
+/* PROGRESS */
+#progressContainer{
   display:none;
-  background:#202c33;
   padding:5px;
+  background:#111;
 }
 
-#progressBar {
-  height:8px;
+#progressBar{
+  height:10px;
   width:0%;
-  background:#00a884;
+  background:#00ff9d;
+  text-align:center;
+  font-size:10px;
 }
 </style>
-
 </head>
 
 <body>
 
-<!-- LEFT -->
+<!-- SIDEBAR -->
 <div id="sidebar">
   <h3>🟢 Users</h3>
   <ul id="users"></ul>
 </div>
 
-<!-- RIGHT -->
+<!-- MAIN -->
 <div id="main">
 
-  <div id="top">ChatBubble</div>
+  <div id="top">
+    <span id="menuBtn" onclick="toggleSidebar()">☰</span>
+    ChatBubble
+  </div>
 
   <div id="chat"></div>
 
+  <!-- PROGRESS -->
   <div id="progressContainer">
     <div id="progressBar"></div>
   </div>
 
+  <!-- INPUT -->
   <div id="inputBox">
     <input id="msg" placeholder="Type message">
     <input type="file" id="file" onchange="sendImage()">
@@ -154,6 +160,11 @@ button {
 <script>
 const socket = io();
 
+/* SIDEBAR TOGGLE */
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("active");
+}
+
 let username = localStorage.getItem("username");
 
 if(!username){
@@ -161,83 +172,81 @@ if(!username){
   localStorage.setItem("username", username);
 }
 
-socket.emit("join", {name: username});
+socket.emit("join",{name:username});
 
-// send text
+/* SEND MSG */
 function sendMsg(){
-  const input = document.getElementById("msg");
+  let input=document.getElementById("msg");
   if(!input.value) return;
 
-  socket.emit("message", input.value);
-  input.value = "";
+  socket.emit("message",input.value);
+  input.value="";
 }
 
-// send image + %
+/* SEND IMAGE WITH % */
 function sendImage(){
-  const file = document.getElementById("file").files[0];
+  const file=document.getElementById("file").files[0];
   if(!file) return;
 
-  const bar = document.getElementById("progressBar");
-  const container = document.getElementById("progressContainer");
+  const bar=document.getElementById("progressBar");
+  const container=document.getElementById("progressContainer");
 
-  container.style.display = "block";
+  container.style.display="block";
 
-  const reader = new FileReader();
+  const reader=new FileReader();
 
-  reader.onprogress = (e)=>{
+  reader.onprogress=(e)=>{
     if(e.lengthComputable){
-      let percent = (e.loaded/e.total)*100;
-      bar.style.width = percent + "%";
+      let percent=Math.round((e.loaded/e.total)*100);
+      bar.style.width=percent+"%";
+      bar.innerText=percent+"%";
     }
   };
 
-  reader.onload = (e)=>{
-    socket.emit("image", e.target.result);
+  reader.onload=(e)=>{
+    socket.emit("image",e.target.result);
 
     setTimeout(()=>{
       container.style.display="none";
       bar.style.width="0%";
+      bar.innerText="";
     },500);
   };
 
   reader.readAsDataURL(file);
 }
 
-// UI
+/* UI */
 function addMsg(type,text){
-  const div = document.createElement("div");
-  div.className = "msg "+type;
-  div.innerText = text;
+  let div=document.createElement("div");
+  div.className="msg "+type;
+  div.innerText=text;
   chat.appendChild(div);
-  scrollDown();
+  chat.scrollTop=chat.scrollHeight;
 }
 
 function addImage(type,src){
-  const div = document.createElement("div");
-  div.className = "msg "+type;
+  let div=document.createElement("div");
+  div.className="msg "+type;
 
-  const img = document.createElement("img");
-  img.src = src;
+  let img=document.createElement("img");
+  img.src=src;
   img.style.maxWidth="200px";
 
   div.appendChild(img);
   chat.appendChild(div);
-  scrollDown();
+  chat.scrollTop=chat.scrollHeight;
 }
 
 function addSystem(text){
-  const div = document.createElement("div");
-  div.className = "system";
-  div.innerText = text;
+  let div=document.createElement("div");
+  div.className="system";
+  div.innerText=text;
   chat.appendChild(div);
 }
 
-function scrollDown(){
-  chat.scrollTop = chat.scrollHeight;
-}
-
-// receive
-socket.on("message", data=>{
+/* RECEIVE */
+socket.on("message",data=>{
   if(data.user===username){
     addMsg("me",data.text);
   }else{
@@ -245,7 +254,7 @@ socket.on("message", data=>{
   }
 });
 
-socket.on("image", data=>{
+socket.on("image",data=>{
   if(data.user===username){
     addImage("me",data.src);
   }else{
@@ -253,12 +262,14 @@ socket.on("image", data=>{
   }
 });
 
-socket.on("system", data=>addSystem(data.text));
+socket.on("system",data=>{
+  addSystem("🟢 "+data.text);
+});
 
-socket.on("users", users=>{
+socket.on("users",users=>{
   usersList.innerHTML="";
   Object.values(users).forEach(u=>{
-    const li=document.createElement("li");
+    let li=document.createElement("li");
     li.innerText=u.name;
     usersList.appendChild(li);
   });
