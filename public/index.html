@@ -1,111 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ChatBubble</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBubble</title>
 
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
 
-    body {
-      height:100vh;
-      display:flex;
-      flex-direction:column;
-      background:#0b141a;
-      font-family:sans-serif;
-      color:white;
-    }
+body{
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  background:#0b141a;
+  color:white;
+  font-family:sans-serif;
+}
 
-    #top {
-      height:50px;
-      background:#202c33;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:0 12px;
-    }
+/* TOP */
+#top{
+  height:50px;
+  background:#202c33;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 10px;
+}
 
-    #menuBtn { cursor:pointer; font-size:22px; }
+#menuBtn{cursor:pointer;font-size:22px}
 
-    #chat {
-      flex:1;
-      overflow-y:auto;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
+/* SIDEBAR */
+#sidebar{
+  position:fixed;
+  left:-250px;
+  top:0;
+  width:250px;
+  height:100%;
+  background:#202c33;
+  transition:0.3s;
+  padding:10px;
+  z-index:1000;
+}
 
-    .msg {
-      padding:10px;
-      border-radius:10px;
-      max-width:75%;
-    }
+#sidebar.active{
+  left:0;
+}
 
-    .me { background:#005c4b; align-self:flex-end; }
-    .other { background:#202c33; align-self:flex-start; }
+/* CHAT */
+#chat{
+  flex:1;
+  overflow-y:auto;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
 
-    .system {
-      text-align:center;
-      font-size:12px;
-      color:#aaa;
-    }
+.msg{
+  padding:10px;
+  border-radius:10px;
+  max-width:75%;
+}
 
-    /* 🔥 IMAGE SMALL PREVIEW */
-    .chat-img {
-      max-width:120px;
-      border-radius:10px;
-      cursor:pointer;
-    }
+.me{background:#005c4b;align-self:flex-end;}
+.other{background:#202c33;}
 
-    /* FULL VIEW */
-    #viewer {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.9);
-      display:none;
-      justify-content:center;
-      align-items:center;
-      z-index:100;
-    }
+.system{
+  text-align:center;
+  font-size:12px;
+  color:#aaa;
+}
 
-    #viewer img {
-      max-width:90%;
-      max-height:90%;
-    }
+/* IMAGE */
+.chat-img{
+  max-width:120px;
+  border-radius:10px;
+  cursor:pointer;
+}
 
-    #inputBox {
-      display:flex;
-      gap:5px;
-      padding:8px;
-      background:#202c33;
-    }
+/* VIEWER */
+#viewer{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.9);
+  display:none;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:2000;
+}
 
-    #msg {
-      flex:1;
-      padding:10px;
-      border:none;
-      border-radius:20px;
-    }
+#viewer img{
+  max-width:90%;
+  max-height:80%;
+}
 
-    #sendBtn {
-      width:40px;
-      border:none;
-      border-radius:50%;
-      background:#00a884;
-      color:white;
-    }
+#closeBtn{
+  margin-top:20px;
+  background:red;
+  padding:10px 20px;
+  border:none;
+  color:white;
+  border-radius:5px;
+}
 
-    #file { display:none; }
+/* INPUT */
+#inputBox{
+  display:flex;
+  gap:5px;
+  padding:8px;
+  background:#202c33;
+}
 
-  </style>
+#msg{
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:20px;
+}
+
+#sendBtn{
+  width:40px;
+  border:none;
+  border-radius:50%;
+  background:#00a884;
+  color:white;
+}
+
+#file{display:none;}
+
+</style>
 </head>
 
 <body>
 
 <div id="top">
-  <span id="menuBtn">☰ ChatBubble</span>
+  <span id="menuBtn" onclick="toggleSidebar()">☰ ChatBubble</span>
   <div>💬 🔔 👤</div>
+</div>
+
+<div id="sidebar">
+  <h3>Online Users</h3>
+  <ul id="users"></ul>
 </div>
 
 <div id="chat"></div>
@@ -117,9 +152,10 @@
   <button id="sendBtn" onclick="sendMsg()">➤</button>
 </div>
 
-<!-- FULL IMAGE VIEW -->
-<div id="viewer" onclick="this.style.display='none'">
+<!-- VIEWER -->
+<div id="viewer">
   <img id="fullImg">
+  <button id="closeBtn" onclick="closeViewer()">Close</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -127,7 +163,6 @@
 
 const socket = io();
 const chat = document.getElementById("chat");
-const msgInput = document.getElementById("msg");
 
 let username = localStorage.getItem("username");
 if(!username){
@@ -135,104 +170,123 @@ if(!username){
   localStorage.setItem("username", username);
 }
 
-socket.emit("join", { name: username });
+socket.emit("join",{name:username});
 
-function scrollDown(){
-  chat.scrollTop = chat.scrollHeight;
+/* SIDEBAR */
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("active");
 }
 
+/* MESSAGE */
 function addMsg(type,text){
-  let div = document.createElement("div");
+  let div=document.createElement("div");
   div.className="msg "+type;
   div.innerText=text;
   chat.appendChild(div);
-  scrollDown();
+  chat.scrollTop=chat.scrollHeight;
 }
 
-/* 🔥 IMAGE PREVIEW + CLICK FULL */
+/* IMAGE */
 function addImage(type,src){
-  let div = document.createElement("div");
+  let div=document.createElement("div");
   div.className="msg "+type;
 
-  let img = document.createElement("img");
-  img.src = src;
-  img.className = "chat-img";
+  let img=document.createElement("img");
+  img.src=src;
+  img.className="chat-img";
 
-  img.onclick = ()=>{
+  img.onclick=()=>{
     document.getElementById("viewer").style.display="flex";
-    document.getElementById("fullImg").src = src;
+    document.getElementById("fullImg").src=src;
   };
 
   div.appendChild(img);
   chat.appendChild(div);
-  scrollDown();
+  chat.scrollTop=chat.scrollHeight;
 }
 
+/* SEND MSG */
 function sendMsg(){
-  let text = msgInput.value.trim();
-  if(!text) return;
-  socket.emit("message", text);
-  msgInput.value="";
+  let text=document.getElementById("msg").value.trim();
+  if(!text)return;
+  socket.emit("message",text);
+  document.getElementById("msg").value="";
 }
 
-/* 🔥 FAST IMAGE SEND (COMPRESS) */
+/* 📸 IMAGE / GIF FIX */
 function sendImage(){
-  let file = document.getElementById("file").files[0];
-  if(!file) return;
+  let file=document.getElementById("file").files[0];
+  if(!file)return;
 
-  let img = new Image();
-  let reader = new FileReader();
+  // 🔥 GIF → direct send (no compression)
+  if(file.type==="image/gif"){
+    let reader=new FileReader();
+    reader.onload=e=>{
+      socket.emit("image",e.target.result);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
 
-  reader.onload = function(e){
-    img.src = e.target.result;
-  };
+  // 🔥 IMAGE → compress
+  let img=new Image();
+  let reader=new FileReader();
 
-  img.onload = function(){
-    let canvas = document.createElement("canvas");
-    let ctx = canvas.getContext("2d");
+  reader.onload=e=>img.src=e.target.result;
 
-    let maxWidth = 400; // 🔥 compression size
-    let scale = maxWidth / img.width;
+  img.onload=()=>{
+    let canvas=document.createElement("canvas");
+    let ctx=canvas.getContext("2d");
 
-    canvas.width = maxWidth;
-    canvas.height = img.height * scale;
+    let maxWidth=400;
+    let scale=maxWidth/img.width;
+
+    canvas.width=maxWidth;
+    canvas.height=img.height*scale;
 
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-    let compressed = canvas.toDataURL("image/jpeg",0.6); // 🔥 compression
-    socket.emit("image", compressed);
+    let compressed=canvas.toDataURL("image/jpeg",0.6);
+    socket.emit("image",compressed);
   };
 
   reader.readAsDataURL(file);
 }
 
+/* PICK FILE */
 function pick(){
   document.getElementById("file").click();
 }
 
+/* CLOSE VIEWER */
+function closeViewer(){
+  document.getElementById("viewer").style.display="none";
+}
+
 /* SOCKET */
-
-socket.on("message",(data)=>{
-  if(data.user===username){
-    addMsg("me",data.text);
-  } else {
-    addMsg("other",data.user+": "+data.text);
-  }
+socket.on("message",(d)=>{
+  addMsg(d.user===username?"me":"other", d.user+": "+d.text);
 });
 
-socket.on("image",(data)=>{
-  if(data.user===username){
-    addImage("me",data.src);
-  } else {
-    addImage("other",data.src);
-  }
+socket.on("image",(d)=>{
+  addImage(d.user===username?"me":"other", d.src);
 });
 
-socket.on("system",(data)=>{
+socket.on("system",(d)=>{
   let div=document.createElement("div");
   div.className="system";
-  div.innerText=data.text;
+  div.innerText=d.text;
   chat.appendChild(div);
+});
+
+socket.on("users",(u)=>{
+  let ul=document.getElementById("users");
+  ul.innerHTML="";
+  Object.values(u).forEach(user=>{
+    let li=document.createElement("li");
+    li.innerText=user.name;
+    ul.appendChild(li);
+  });
 });
 
 </script>
