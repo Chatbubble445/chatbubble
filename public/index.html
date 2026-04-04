@@ -4,48 +4,21 @@
 <title>ChatBubble</title>
 
 <style>
-body {
-  margin:0;
-  font-family: Arial;
-  background:#0b141a;
-  color:white;
-}
+body { margin:0; font-family:Arial; background:#0b141a; color:white; }
 
-#chat {
-  height:70vh;
-  overflow-y:auto;
-  padding:10px;
-}
+#top { background:#202c33; padding:10px; }
 
-.msg {
-  padding:10px;
-  margin:5px;
-  border-radius:10px;
-}
+#chat { height:65vh; overflow-y:auto; padding:10px; }
 
+.msg { padding:10px; margin:5px; border-radius:10px; }
 .me { background:#005c4b; text-align:right; }
 .other { background:#202c33; }
 
-#inputBox {
-  display:flex;
-  position:fixed;
-  bottom:0;
-  width:100%;
-}
-
-input { flex:1; padding:10px; }
+#inputBox { display:flex; position:fixed; bottom:0; width:100%; }
+input, select { padding:10px; }
 button { padding:10px; }
 
-#top {
-  background:#202c33;
-  padding:10px;
-}
-
-#progress {
-  height:5px;
-  background:green;
-  width:0%;
-}
+#progress { height:5px; background:green; width:0%; }
 </style>
 
 </head>
@@ -53,8 +26,15 @@ button { padding:10px; }
 
 <div id="top">
   💬 ChatBubble  
-  <div id="rank">Rank: 🥉 Bronze</div>
-  <div id="progress"></div>
+  <div id="online">🟢 0 users online</div>
+
+  <select id="room">
+    <option value="global">🌍 Global</option>
+    <option value="india">🇮🇳 India</option>
+    <option value="fun">😄 Fun</option>
+  </select>
+
+  <button onclick="join()">Join</button>
 </div>
 
 <div id="chat"></div>
@@ -70,17 +50,22 @@ button { padding:10px; }
 <script>
 const socket = io();
 
-let username = prompt("Enter your name");
-socket.emit("join", username);
+let username = prompt("Enter name") || "Guest" + Math.floor(Math.random()*1000);
+let room = "global";
 
-// message send
+function join(){
+  room = document.getElementById("room").value;
+  socket.emit("join", {name: username, room: room});
+}
+
 function sendMsg(){
   const msg = document.getElementById("msg").value;
+  if(!msg) return;
+
   socket.emit("message", msg);
   addMsg("me", msg);
 }
 
-// show msg
 function addMsg(type, text){
   const div = document.createElement("div");
   div.className = "msg " + type;
@@ -90,18 +75,15 @@ function addMsg(type, text){
   document.getElementById("chat").scrollTop = 999999;
 }
 
-// receive msg
 socket.on("message", (data) => {
   addMsg("other", data.rank + " " + data.user + ": " + data.text);
   document.getElementById("sound").play();
-
-  updateRank(data.rank);
 });
 
-// update rank
-function updateRank(rank){
-  document.getElementById("rank").innerText = "Rank: " + rank;
-}
+socket.on("users", (users) => {
+  document.getElementById("online").innerText =
+    "🟢 " + Object.keys(users).length + " users online";
+});
 </script>
 
 </body>
