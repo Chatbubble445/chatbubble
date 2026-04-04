@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ChatBubble</title>
+<style>
+body { background: #111; color: white; font-family: Arial; }
+</style>
+</head>
+<body>
+
+<h2>💬 ChatBubble</h2>
+
+<input id="name" placeholder="Enter name">
+<button onclick="join()">Join</button>
+
+<div id="chat"></div>
+
+<input id="msg" placeholder="Type message">
+<button onclick="sendMsg()">Send</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+function join(){
+    const name = document.getElementById("name").value;
+    socket.emit("join", name);
+}
+
+function sendMsg(){
+    const msg = document.getElementById("msg").value;
+    socket.emit("message", msg);
+}
+
+socket.on("message", (data) => {
+    const div = document.createElement("div");
+    div.innerText = data.user + ": " + data.text;
+    document.getElementById("chat").appendChild(div);
+});
+</script>
+
+</body>
+</html>
