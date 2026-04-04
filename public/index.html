@@ -9,9 +9,7 @@ body{
   font-family:Arial;
   height:100vh;
   overflow:hidden;
-
-  background:url("https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2") no-repeat center center fixed;
-  background-size:cover;
+  background:#0b141a;
 }
 
 /* SIDEBAR */
@@ -26,42 +24,26 @@ body{
   padding:10px;
   z-index:2;
 }
+#sidebar.active{ left:0; }
 
-#sidebar.active{
-  left:0;
-}
-
-/* USERS */
-#users li{
-  padding:10px;
-  border-bottom:1px solid #333;
-}
-
-/* MAIN */
-#main{
-  height:100%;
-  display:flex;
-  flex-direction:column;
-  background:rgba(11,20,26,0.8);
-}
-
-/* TOP */
+/* TOP BAR */
 #top{
   display:flex;
   align-items:center;
-  gap:10px;
+  justify-content:space-between;
   background:#202c33;
   padding:10px;
+  color:white;
 }
+#menuBtn{font-size:22px;cursor:pointer;}
 
-#menuBtn{
-  font-size:22px;
-  cursor:pointer;
-}
-
-/* CHAT */
+/* CHAT AREA */
 #chat{
-  flex:1;
+  position:absolute;
+  top:50px;
+  bottom:60px;
+  left:0;
+  right:0;
   overflow-y:auto;
   padding:10px;
   display:flex;
@@ -75,55 +57,61 @@ body{
   border-radius:10px;
   max-width:70%;
 }
-
 .me{
   background:#005c4b;
   align-self:flex-end;
 }
-
 .other{
   background:#202c33;
 }
-
 .system{
   text-align:center;
   color:#aaa;
   font-size:12px;
 }
 
-/* INPUT */
+/* TYPING */
+#typing{
+  font-size:12px;
+  color:#aaa;
+  margin-left:10px;
+}
+
+/* INPUT FIXED */
 #inputBox{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
   display:flex;
   gap:5px;
   padding:10px;
   background:#202c33;
 }
 
+/* INPUT */
 #msg{
   flex:1;
   padding:10px;
-}
-
-button{
-  background:#00a884;
-  color:white;
+  border-radius:20px;
   border:none;
-  padding:10px;
 }
 
-/* PROGRESS */
-#progressContainer{
-  display:none;
-  padding:5px;
-  background:#111;
+/* ICON BUTTONS */
+.icon{
+  background:none;
+  border:none;
+  color:white;
+  font-size:18px;
 }
 
-#progressBar{
-  height:10px;
-  width:0%;
-  background:#00ff9d;
-  text-align:center;
-  font-size:10px;
+/* SEND */
+#sendBtn{
+  background:#00a884;
+  border:none;
+  color:white;
+  padding:10px 15px;
+  border-radius:20px;
 }
 </style>
 </head>
@@ -136,67 +124,56 @@ button{
   <ul id="users"></ul>
 </div>
 
-<!-- MAIN -->
-<div id="main">
+<!-- TOP -->
+<div id="top">
+  <span id="menuBtn">☰</span>
+  <span>ChatBubble</span>
+  <span>💬 🔔 👤</span>
+</div>
 
-  <div id="top">
-    <span id="menuBtn">☰</span>
-    ChatBubble
-  </div>
+<!-- CHAT -->
+<div id="chat"></div>
+<div id="typing"></div>
 
-  <div id="chat"></div>
-
-  <div id="progressContainer">
-    <div id="progressBar"></div>
-  </div>
-
-  <div id="inputBox">
-    <input id="msg" placeholder="Type message">
-    <input type="file" id="file" onchange="sendImage()">
-    <button onclick="sendMsg()">Send</button>
-  </div>
-
+<!-- INPUT -->
+<div id="inputBox">
+  <button class="icon">😊</button>
+  <input id="msg" placeholder="Type here..." oninput="typing()">
+  <input type="file" id="file" hidden onchange="sendImage()">
+  <button class="icon" onclick="document.getElementById('file').click()">📎</button>
+  <button id="sendBtn" onclick="sendMsg()">➤</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 
-/* SIDEBAR FIX */
-const sidebar = document.getElementById("sidebar");
-const menuBtn = document.getElementById("menuBtn");
+/* SIDEBAR */
+const sidebar=document.getElementById("sidebar");
+const menuBtn=document.getElementById("menuBtn");
 
-menuBtn.onclick = function(e){
+menuBtn.onclick=(e)=>{
   e.stopPropagation();
   sidebar.classList.toggle("active");
 };
 
-/* CLICK OUTSIDE CLOSE */
-document.addEventListener("click", function(e){
-  if(
-    sidebar.classList.contains("active") &&
-    !sidebar.contains(e.target)
-  ){
+document.addEventListener("click",(e)=>{
+  if(sidebar.classList.contains("active") && !sidebar.contains(e.target)){
     sidebar.classList.remove("active");
   }
 });
 
-/* PREVENT CLOSE WHEN INSIDE */
-sidebar.addEventListener("click", function(e){
-  e.stopPropagation();
-});
+sidebar.onclick=(e)=>e.stopPropagation();
 
 /* USER */
-let username = localStorage.getItem("username");
-
+let username=localStorage.getItem("username");
 if(!username){
-  username = prompt("Enter name");
-  localStorage.setItem("username", username);
+  username=prompt("Enter name");
+  localStorage.setItem("username",username);
 }
-
 socket.emit("join",{name:username});
 
-/* SEND MSG */
+/* SEND */
 function sendMsg(){
   let input=document.getElementById("msg");
   if(!input.value) return;
@@ -205,57 +182,35 @@ function sendMsg(){
   input.value="";
 }
 
-/* IMAGE WITH % */
+/* IMAGE */
 function sendImage(){
-  const file=document.getElementById("file").files[0];
-  if(!file) return;
-
-  const bar=document.getElementById("progressBar");
-  const container=document.getElementById("progressContainer");
-
-  container.style.display="block";
-
-  const reader=new FileReader();
-
-  reader.onprogress=(e)=>{
-    if(e.lengthComputable){
-      let percent=Math.round((e.loaded/e.total)*100);
-      bar.style.width=percent+"%";
-      bar.innerText=percent+"%";
-    }
-  };
-
+  let file=document.getElementById("file").files[0];
+  let reader=new FileReader();
   reader.onload=(e)=>{
     socket.emit("image",e.target.result);
-
-    setTimeout(()=>{
-      container.style.display="none";
-      bar.style.width="0%";
-      bar.innerText="";
-    },500);
   };
-
   reader.readAsDataURL(file);
 }
+
+/* TYPING */
+function typing(){
+  socket.emit("typing",username);
+}
+
+socket.on("typing",(name)=>{
+  if(name!==username){
+    document.getElementById("typing").innerText=name+" is typing...";
+    setTimeout(()=>{
+      document.getElementById("typing").innerText="";
+    },1000);
+  }
+});
 
 /* UI */
 function addMsg(type,text){
   let div=document.createElement("div");
   div.className="msg "+type;
   div.innerText=text;
-  chat.appendChild(div);
-  chat.scrollTop=chat.scrollHeight;
-}
-
-function addImage(type,src){
-  let div=document.createElement("div");
-  div.className="msg "+type;
-
-  let img=document.createElement("img");
-  img.src=src;
-  img.style.maxWidth="200px";
-
-  div.appendChild(img);
   chat.appendChild(div);
   chat.scrollTop=chat.scrollHeight;
 }
@@ -277,11 +232,15 @@ socket.on("message",data=>{
 });
 
 socket.on("image",data=>{
-  if(data.user===username){
-    addImage("me",data.src);
-  }else{
-    addImage("other",data.src);
-  }
+  let img=document.createElement("img");
+  img.src=data.src;
+  img.style.maxWidth="200px";
+
+  let div=document.createElement("div");
+  div.className="msg";
+  div.appendChild(img);
+
+  chat.appendChild(div);
 });
 
 socket.on("system",data=>{
