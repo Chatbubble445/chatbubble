@@ -6,7 +6,6 @@
 <style>
 body { margin:0; font-family: Arial; background:#0b141a; color:white; }
 
-/* Sidebar */
 #sidebar {
   width:250px;
   background:#202c33;
@@ -15,27 +14,29 @@ body { margin:0; font-family: Arial; background:#0b141a; color:white; }
   top:0;
   height:100%;
   transition:0.3s;
-  z-index:100;
   padding:10px;
 }
 #sidebar.open { left:0; }
 
-#users li { padding:10px; border-bottom:1px solid #333; }
+#users li {
+  padding:10px;
+  border-bottom:1px solid #333;
+  cursor:pointer;
+}
 
-/* Top */
+#users li:hover {
+  background:#2a3942;
+}
+
 #top {
   background:#202c33;
   padding:10px;
   display:flex;
   justify-content:space-between;
-  align-items:center;
 }
 
-.menuBtn { font-size:20px; cursor:pointer; }
+.menuBtn { cursor:pointer; }
 
-.icon { margin-left:10px; cursor:pointer; }
-
-/* Chat */
 #chat {
   height:calc(100vh - 110px);
   overflow-y:auto;
@@ -46,9 +47,8 @@ body { margin:0; font-family: Arial; background:#0b141a; color:white; }
 .me { background:#005c4b; margin-left:auto; }
 .other { background:#202c33; }
 
-.system { text-align:center; color:gray; font-size:12px; margin:5px; }
+.system { text-align:center; color:gray; }
 
-/* Input */
 #inputBox {
   position:fixed;
   bottom:0;
@@ -59,25 +59,11 @@ body { margin:0; font-family: Arial; background:#0b141a; color:white; }
   background:#202c33;
 }
 
-#msg {
-  flex:1;
-  padding:8px;
-  border:none;
-  border-radius:5px;
-}
-
-#file { width:90px; }
-
-button {
-  padding:8px 12px;
-  background:#00a884;
-  color:white;
-  border:none;
-  border-radius:5px;
-}
+#msg { flex:1; padding:8px; }
+button { padding:8px; background:#00a884; color:white; border:none; }
 </style>
-
 </head>
+
 <body>
 
 <div id="sidebar">
@@ -86,22 +72,14 @@ button {
 </div>
 
 <div id="top">
-  <div>
-    <span class="menuBtn" onclick="toggleSidebar()">☰</span>
-    ChatBubble
-  </div>
-
-  <div>
-    <span class="icon">💬</span>
-    <span class="icon" onclick="logout()">🚪</span>
-  </div>
+  <span class="menuBtn" onclick="toggleSidebar()">☰ ChatBubble</span>
+  <span onclick="logout()">🚪</span>
 </div>
 
 <div id="chat"></div>
 
 <div id="inputBox">
   <input id="msg" placeholder="Type message">
-  <input type="file" id="file" accept="image/*" onchange="sendImage()">
   <button onclick="sendMsg()">Send</button>
 </div>
 
@@ -109,31 +87,22 @@ button {
 <script>
 const socket = io();
 
-// 🔥 username save
 let username = localStorage.getItem("username");
 
 if(!username){
-  username = prompt("Enter name") || "Guest" + Math.floor(Math.random()*1000);
+  username = prompt("Enter name");
   localStorage.setItem("username", username);
 }
 
+let currentDM = null;
+
 // join
-socket.emit("join", {name: username, room: "global"});
+socket.emit("join", {name: username});
 
 // sidebar
 function toggleSidebar(){
-  document.getElementById("sidebar").classList.toggle("open");
+  sidebar.classList.toggle("open");
 }
-
-// close outside
-document.addEventListener("click", function(e){
-  const sidebar = document.getElementById("sidebar");
-  const btn = document.querySelector(".menuBtn");
-
-  if(!sidebar.contains(e.target) && !btn.contains(e.target)){
-    sidebar.classList.remove("open");
-  }
-});
 
 // logout
 function logout(){
@@ -141,42 +110,27 @@ function logout(){
   location.reload();
 }
 
-// send msg
+// send
 function sendMsg(){
   const msg = document.getElementById("msg").value;
-  if(!msg) return;
 
-  socket.emit("message", msg);
+  if(currentDM){
+    socket.emit("dm", {to: currentDM, msg});
+  } else {
+    socket.emit("message", msg);
+  }
+
+  msg.value = "";
   document.getElementById("msg").value = "";
 }
 
-// send image
-function sendImage(){
-  const file = document.getElementById("file").files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = e => socket.emit("image", e.target.result);
-  reader.readAsDataURL(file);
-}
-
-// UI functions
+// UI
 function addMsg(type, text){
   const div = document.createElement("div");
   div.className = "msg " + type;
   div.innerText = text;
   chat.appendChild(div);
-  scrollDown();
-}
-
-function addImage(type, src){
-  const div = document.createElement("div");
-  div.className = "msg " + type;
-  const img = document.createElement("img");
-  img.src = src;
-  div.appendChild(img);
-  chat.appendChild(div);
-  scrollDown();
+  chat.scrollTop = chat.scrollHeight;
 }
 
 function addSystem(text){
@@ -184,44 +138,48 @@ function addSystem(text){
   div.className = "system";
   div.innerText = text;
   chat.appendChild(div);
-  scrollDown();
-}
-
-function scrollDown(){
-  chat.scrollTop = chat.scrollHeight;
 }
 
 // receive
 socket.on("message", data => {
-  if(data.user === username){
-    addMsg("me", data.text);
-  } else {
-    addMsg("other", data.user + ": " + data.text);
+  if(!currentDM){
+    if(data.user === username){
+      addMsg("me", data.text);
+    } else {
+      addMsg("other", data.user + ": " + data.text);
+    }
   }
 });
 
-socket.on("image", data => {
-  if(data.user === username){
-    addImage("me", data.src);
-  } else {
-    addImage("other", data.src);
-  }
+// DM receive
+socket.on("dm", data => {
+  addMsg("other", "💬 " + data.from + ": " + data.text);
 });
 
+// system
 socket.on("system", data => addSystem(data.text));
 
+// users list
 socket.on("users", users => {
   usersList.innerHTML = "";
-  Object.values(users).forEach(u => {
+
+  Object.entries(users).forEach(([id, u]) => {
     const li = document.createElement("li");
     li.innerText = u.name;
+
+    li.onclick = () => {
+      currentDM = id;
+      chat.innerHTML = "";
+      addSystem("💬 Chatting with " + u.name);
+    };
+
     usersList.appendChild(li);
   });
 });
 
-// refs
 const chat = document.getElementById("chat");
 const usersList = document.getElementById("users");
+const sidebar = document.getElementById("sidebar");
 </script>
 
 </body>
