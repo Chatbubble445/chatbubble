@@ -11,9 +11,10 @@ app.use(express.static("public"));
 let users = {};
 
 io.on("connection", (socket) => {
+
     socket.on("join", (username) => {
         users[socket.id] = username;
-        io.emit("users", Object.values(users));
+        io.emit("users", users);
     });
 
     socket.on("message", (msg) => {
@@ -23,9 +24,17 @@ io.on("connection", (socket) => {
         });
     });
 
+    // 🔥 PRIVATE CHAT
+    socket.on("privateMessage", ({to, message}) => {
+        io.to(to).emit("privateMessage", {
+            user: users[socket.id],
+            text: message
+        });
+    });
+
     socket.on("disconnect", () => {
         delete users[socket.id];
-        io.emit("users", Object.values(users));
+        io.emit("users", users);
     });
 });
 
