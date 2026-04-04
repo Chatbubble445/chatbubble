@@ -12,68 +12,72 @@ let users = {};
 let messages = [];
 
 io.on("connection", (socket) => {
+  users[socket.id] = {
+    name: "Guest",
+    room: "global"
+  };
 
-    users[socket.id] = {
-        name: "Guest",
-        room: "global"
+  socket.on("join", ({ name }) => {
+    users[socket.id].name = name || "Guest";
+    socket.join("global");
+
+    messages.forEach((m) => {
+      if (m.type === "image") {
+        socket.emit("image", m);
+      } else {
+        socket.emit("message", m);
+      }
+    });
+
+    io.emit("users", users);
+    io.emit("system", {
+      text: users[socket.id].name + " joined"
+    });
+  });
+
+  socket.on("message", (msg) => {
+    const user = users[socket.id];
+    if (!msg || !user) return;
+
+    const data = {
+      user: user.name,
+      text: msg
     };
 
-    // JOIN
-    socket.on("join", ({name}) => {
-        users[socket.id].name = name || "Guest";
-        socket.join("global");
+    messages.push(data);
+    io.emit("message", data);
+  });
 
-        // send old messages
-        messages.forEach(m => socket.emit("message", m));
+  socket.on("image", (img) => {
+    const user = users[socket.id];
+    if (!img || !user) return;
 
-        io.emit("users", users);
+    const data = {
+      type: "image",
+      user: user.name,
+      src: img
+    };
 
-        io.emit("system", {
-            text: "🟢 " + name + " joined"
-        });
-    });
+    messages.push(data);
+    io.emit("image", data);
+  });
 
-    // GLOBAL MESSAGE
-    socket.on("message", (msg) => {
-        const user = users[socket.id];
+  socket.on("typing", (name) => {
+    socket.broadcast.emit("typing", name);
+  });
 
-        const data = {
-            user: user.name,
-            text: msg
-        };
-
-        messages.push(data);
-        io.emit("message", data);
-    });
-
-    // 🔥 PRIVATE MESSAGE
-    socket.on("dm", ({to, msg}) => {
-        const fromUser = users[socket.id];
-
-        io.to(to).emit("dm", {
-            from: fromUser.name,
-            text: msg
-        });
-
-        socket.emit("dm", {
-            from: "You",
-            text: msg
-        });
-    });
-
-    socket.on("disconnect", () => {
-        const user = users[socket.id];
-
-        if(user){
-            io.emit("system", {
-                text: "🔴 " + user.name + " left"
-            });
-        }
-
-        delete users[socket.id];
-        io.emit("users", users);
-    });
-
+  socket.on("disconnect", () => {
+    const user = users[socket.id];
+    if (user) {
+      io.emit("system", {
+        text: user.name + " left"
+      });
+    }
+    delete users[socket.id];
+    io.emit("users", users);
+  });
 });
 
-server.listen(process.env.PORT || 3000);
+server.listen(process.env.PORT || 3000, () => {
+  console.log("Server running");
+});
