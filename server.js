@@ -11,7 +11,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-// ===== Multer setup =====
+// ===== Upload config =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "public/uploads/"),
   filename: (req, file, cb) =>
@@ -25,28 +25,29 @@ app.post("/upload", upload.single("file"), (req, res) => {
   res.json({ url: "/uploads/" + req.file.filename });
 });
 
-// ===== Chat logic =====
+// ===== Chat =====
 let users = {};
 let messages = [];
 
 io.on("connection", (socket) => {
+
   socket.on("join", (name) => {
     users[socket.id] = name;
 
-    io.emit("system", `${name} joined`);
-    io.emit("users", Object.values(users));
     socket.emit("oldMessages", messages);
+    io.emit("users", Object.values(users));
+    io.emit("system", `${name} joined`);
   });
 
   socket.on("sendMessage", (data) => {
     const msg = {
       user: users[socket.id],
-      ...data,
+      ...data
     };
 
     messages.push(msg);
 
-    // only last 20 messages
+    // last 20 messages only
     if (messages.length > 20) messages.shift();
 
     io.emit("message", msg);
@@ -56,9 +57,10 @@ io.on("connection", (socket) => {
     const name = users[socket.id];
     delete users[socket.id];
 
-    io.emit("system", `${name} left`);
     io.emit("users", Object.values(users));
+    io.emit("system", `${name} left`);
   });
+
 });
 
-server.listen(3000, () => console.log("Server running on 3000"));
+server.listen(3000, () => console.log("Server running"));
