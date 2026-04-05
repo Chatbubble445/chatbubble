@@ -17,13 +17,22 @@ let messages = [];
 
 const upload = multer({ dest: "public/uploads/" });
 
-// Upload API
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
+    const ext = file.originalname.split(".").pop().toLowerCase();
+
+    // 👉 GIF direct save (no compression)
+    if (ext === "gif") {
+      const newPath = file.path + ".gif";
+      fs.renameSync(file.path, newPath);
+
+      return res.json({ file: "/" + newPath.replace("public/", "") });
+    }
+
+    // 👉 Image compress
     const newPath = file.path + ".jpg";
 
-    // image compress
     await sharp(file.path)
       .resize({ width: 400 })
       .jpeg({ quality: 60 })
