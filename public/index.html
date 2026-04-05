@@ -93,7 +93,7 @@ button {
 
 /* IMAGE */
 .chat-img {
-  max-width: 150px;
+  max-width: 140px;
   border-radius: 10px;
   cursor: pointer;
 }
@@ -129,6 +129,7 @@ button {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+
 const socket = io();
 let name = localStorage.getItem("name") || prompt("Enter name");
 localStorage.setItem("name", name);
@@ -137,6 +138,7 @@ socket.emit("join", name);
 
 const chat = document.getElementById("chat");
 
+// ===== add message =====
 function addMsg(msg, me=false) {
   const div = document.createElement("div");
   div.className = "msg " + (me ? "me" : "other");
@@ -151,7 +153,7 @@ function addMsg(msg, me=false) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// receive
+// ===== receive =====
 socket.on("message", (msg) => {
   addMsg(msg, msg.user === name);
 });
@@ -173,7 +175,7 @@ socket.on("users", (list) => {
     list.map(u => `<li>${u}</li>`).join("");
 });
 
-// send text
+// ===== send text =====
 function send() {
   const val = msg.value;
   if (!val) return;
@@ -182,8 +184,8 @@ function send() {
   msg.value = "";
 }
 
-// upload file
-document.getElementById("file").onchange = async (e) => {
+// ===== upload =====
+document.getElementById("file").onchange = (e) => {
   const file = e.target.files[0];
   const formData = new FormData();
   formData.append("file", file);
@@ -214,18 +216,23 @@ document.getElementById("file").onchange = async (e) => {
   xhr.send(formData);
 };
 
-// sidebar toggle
+// ===== sidebar =====
 function toggleSidebar() {
   document.getElementById("sidebar").classList.toggle("active");
 }
 
-// image zoom
+// ===== image zoom =====
 document.addEventListener("click", (e) => {
   if (e.target.classList.contains("chat-img")) {
     const modal = document.createElement("div");
     modal.style = `
-      position:fixed;top:0;left:0;width:100%;height:100%;
-      background:black;display:flex;align-items:center;justify-content:center;
+      position:fixed;
+      top:0;left:0;width:100%;height:100%;
+      background:black;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
     `;
     modal.innerHTML = `<img src="${e.target.src}" style="max-width:90%">`;
     modal.onclick = () => modal.remove();
