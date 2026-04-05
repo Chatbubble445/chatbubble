@@ -2,8 +2,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const multer = require("multer");
-const fs = require("fs");
 const sharp = require("sharp");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -12,32 +12,25 @@ const io = new Server(server);
 app.use(express.static("public"));
 app.use("/uploads", express.static("public/uploads"));
 
-let users = [];
+let users = {};
 let messages = [];
+let dmMessages = {};
 
-const storage = multer.diskStorage({
-  destination: "public/uploads/",
-  filename: (req, file, cb) => {
-    const ext = file.originalname.split(".").pop();
-    cb(null, Date.now() + "." + ext);
-  }
-});
+const upload = multer({ dest: "public/uploads/" });
 
-const upload = multer({ storage });
-
-// 🔥 FILE UPLOAD
+// 🔥 UPLOAD FIXED
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     let file = req.file;
-    let ext = file.filename.split(".").pop().toLowerCase();
+    let ext = file.originalname.split(".").pop().toLowerCase();
 
-    // GIF no compression
+    // GIF direct
     if (ext === "gif") {
-      return res.json({ file: "/uploads/" + file.filename });
+      return res.json({ url: "/" + file.path.replace("public/", "") });
     }
 
-    // Image compress
-    const newPath = "public/uploads/compress-" + file.filename + ".jpg";
+    // IMAGE COMPRESS
+    let newPath = file.path + ".jpg";
 
     await sharp(file.path)
       .resize({ width: 400 })
@@ -46,36 +39,27 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     fs.unlinkSync(file.path);
 
-    res.json({
-      file: "/" + newPath.replace("public/", "")
-    });
+    res.json({ url: "/" + newPath.replace("public/", "") });
 
   } catch {
-    res.status(500).send("Upload error");
+    res.status(500).send("upload error");
   }
 });
 
-// 🔥 SOCKET
+// 🔥 SOCKET FIXED
 io.on("connection", (socket) => {
 
   socket.on("join", (name) => {
     socket.username = name;
+    users[socket.id] = name;
 
-    if (!users.includes(name)) users.push(name);
-
-    io.emit("users", users);
-
-    // send old messages
+    io.emit("users", Object.values(users));
     socket.emit("messages", messages);
-
-    // join msg
-    messages.push({ system: true, text: name + " joined" });
-    if (messages.length > 20) messages.shift();
-
-    io.emit("messages", messages);
   });
 
-  socket.on("send", (msg) => {
+  socket.on("message", (msg) => {
+    if (!msg) return;
+
     messages.push({ user: socket.username, text: msg });
     if (messages.length > 20) messages.shift();
 
@@ -89,9 +73,23 @@ io.on("connection", (socket) => {
     io.emit("messages", messages);
   });
 
+  // DM FIXED
+  socket.on("dm", ({ to, text }) => {
+    if (!text) return;
+
+    let room = [socket.username, to].sort().join("-");
+    if (!dmMessages[room]) dmMessages[room] = [];
+
+    let msg = { from: socket.username, text };
+
+    dmMessages[room].push(msg);
+
+    io.emit("dm", { room, msg });
+  });
+
   socket.on("disconnect", () => {
-    users = users.filter(u => u !== socket.username);
-    io.emit("users", users);
+    delete users[socket.id];
+    io.emit("users", Object.values(users));
   });
 
 });
