@@ -36,10 +36,23 @@ body {
   background:#24343d;
   padding:10px;
   transition:0.3s;
+  z-index:10;
 }
 
 .sidebar.active {
   left:0;
+}
+
+/* OVERLAY */
+#overlay {
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  z-index:5;
 }
 
 /* CHAT */
@@ -113,7 +126,6 @@ img {
   background:lime;
 }
 </style>
-
 </head>
 
 <body>
@@ -124,18 +136,15 @@ img {
 </div>
 
 <div id="sidebar" class="sidebar"></div>
+<div id="overlay" onclick="closeSidebar()"></div>
 
 <div id="chat" class="chat"></div>
-
 <div id="progress"></div>
 
 <div class="inputBox">
   <button class="plusBtn" onclick="document.getElementById('file').click()">+</button>
-
   <input id="msg" placeholder="Type message">
-
   <button class="sendBtn" onclick="send()">➤</button>
-
   <input type="file" id="file" style="display:none">
 </div>
 
@@ -149,7 +158,13 @@ socket.emit("join", name);
 
 // Sidebar
 function toggleSidebar(){
-  document.getElementById("sidebar").classList.toggle("active");
+  document.getElementById("sidebar").classList.add("active");
+  document.getElementById("overlay").style.display = "block";
+}
+
+function closeSidebar(){
+  document.getElementById("sidebar").classList.remove("active");
+  document.getElementById("overlay").style.display = "none";
 }
 
 // Users
