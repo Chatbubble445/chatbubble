@@ -2,6 +2,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const multer = require("multer");
+const sharp = require("sharp");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -13,20 +15,30 @@ app.use("/uploads", express.static("public/uploads"));
 let users = [];
 let messages = [];
 
-// Upload setup
-const storage = multer.diskStorage({
-  destination: "public/uploads/",
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+const upload = multer({ dest: "public/uploads/" });
+
+// Upload API
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    const file = req.file;
+    const newPath = file.path + ".jpg";
+
+    // image compress
+    await sharp(file.path)
+      .resize({ width: 400 })
+      .jpeg({ quality: 60 })
+      .toFile(newPath);
+
+    fs.unlinkSync(file.path);
+
+    res.json({ file: "/" + newPath.replace("public/", "") });
+
+  } catch (e) {
+    res.json({ error: "Upload failed" });
   }
 });
-const upload = multer({ storage });
 
-app.post("/upload", upload.single("file"), (req, res) => {
-  res.json({ file: "/uploads/" + req.file.filename });
-});
-
-// Socket
+// SOCKET
 io.on("connection", (socket) => {
 
   socket.on("join", (name) => {
@@ -62,5 +74,4 @@ io.on("connection", (socket) => {
 
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running " + PORT));
+server.listen(process.env.PORT || 3000);
