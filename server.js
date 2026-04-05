@@ -2,8 +2,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const multer = require("multer");
-const sharp = require("sharp");
 const fs = require("fs");
+const sharp = require("sharp");
 
 const app = express();
 const server = http.createServer(app);
@@ -15,23 +15,29 @@ app.use("/uploads", express.static("public/uploads"));
 let users = [];
 let messages = [];
 
-const upload = multer({ dest: "public/uploads/" });
+const storage = multer.diskStorage({
+  destination: "public/uploads/",
+  filename: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop();
+    cb(null, Date.now() + "." + ext);
+  }
+});
 
+const upload = multer({ storage });
+
+// 🔥 FILE UPLOAD
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
-    const file = req.file;
-    const ext = file.originalname.split(".").pop().toLowerCase();
+    let file = req.file;
+    let ext = file.filename.split(".").pop().toLowerCase();
 
-    // 👉 GIF direct save (no compression)
+    // GIF no compression
     if (ext === "gif") {
-      const newPath = file.path + ".gif";
-      fs.renameSync(file.path, newPath);
-
-      return res.json({ file: "/" + newPath.replace("public/", "") });
+      return res.json({ file: "/uploads/" + file.filename });
     }
 
-    // 👉 Image compress
-    const newPath = file.path + ".jpg";
+    // Image compress
+    const newPath = "public/uploads/compress-" + file.filename + ".jpg";
 
     await sharp(file.path)
       .resize({ width: 400 })
@@ -40,22 +46,29 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     fs.unlinkSync(file.path);
 
-    res.json({ file: "/" + newPath.replace("public/", "") });
+    res.json({
+      file: "/" + newPath.replace("public/", "")
+    });
 
-  } catch (e) {
-    res.json({ error: "Upload failed" });
+  } catch {
+    res.status(500).send("Upload error");
   }
 });
 
-// SOCKET
+// 🔥 SOCKET
 io.on("connection", (socket) => {
 
   socket.on("join", (name) => {
     socket.username = name;
-    users.push(name);
+
+    if (!users.includes(name)) users.push(name);
 
     io.emit("users", users);
 
+    // send old messages
+    socket.emit("messages", messages);
+
+    // join msg
     messages.push({ system: true, text: name + " joined" });
     if (messages.length > 20) messages.shift();
 
