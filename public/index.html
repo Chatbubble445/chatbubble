@@ -5,47 +5,10 @@
 <title>ChatBubble</title>
 
 <style>
-body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
+body { margin:0; background:#0c1b22; color:white; font-family:sans-serif; }
 
-.topbar {
-  background:#1f3a44;
-  padding:10px;
-  display:flex;
-  align-items:center;
-}
-
-.menu { cursor:pointer; font-size:22px; }
-
-/* SIDEBAR */
-.sidebar {
-  position:fixed;
-  left:-220px;
-  top:0;
-  width:200px;
-  height:100%;
-  background:#2b3e46;
-  padding:15px;
-  transition:0.3s;
-  z-index:1000;
-}
-
-.sidebar.active { left:0; }
-
-/* OVERLAY */
-.overlay {
-  position:fixed;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:rgba(0,0,0,0.5);
-  display:none;
-  z-index:999;
-}
-
-.overlay.active { display:block; }
-
-/* CHAT */
 .chat {
-  height:80vh;
+  height:75vh;
   overflow:auto;
   padding:10px;
   display:flex;
@@ -54,25 +17,20 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
 
 .msg-left {
   background:#1f3a44;
+  margin:5px;
   padding:8px;
   border-radius:10px;
-  margin:5px;
   max-width:70%;
   align-self:flex-start;
 }
 
 .msg-right {
   background:#16a34a;
+  margin:5px;
   padding:8px;
   border-radius:10px;
-  margin:5px;
   max-width:70%;
   align-self:flex-end;
-}
-
-.username {
-  font-size:11px;
-  opacity:0.7;
 }
 
 img {
@@ -80,7 +38,6 @@ img {
   border-radius:10px;
 }
 
-/* INPUT */
 .inputBox {
   display:flex;
   padding:10px;
@@ -94,38 +51,31 @@ input {
 }
 
 button {
-  margin-left:5px;
-  border:none;
-  border-radius:50%;
   width:45px;
   height:45px;
+  border:none;
+  border-radius:50%;
   background:#16a34a;
   color:white;
-  font-size:18px;
+  margin-left:5px;
+}
+
+#progress {
+  text-align:center;
+  font-size:12px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="topbar">
-  <span class="menu" onclick="openSidebar()">☰</span>
-  <span style="margin-left:10px;">ChatBubble</span>
-</div>
-
-<div class="sidebar" id="sidebar">
-  <h3>Users</h3>
-  <div id="users"></div>
-</div>
-
-<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
-
 <div class="chat" id="chat"></div>
+<div id="progress"></div>
 
 <div class="inputBox">
-  <button type="button" onclick="openFile()">+</button>
+  <button onclick="pickFile()">+</button>
   <input id="msg" placeholder="Type message">
-  <button type="button" onclick="send()">➤</button>
+  <button onclick="send()">➤</button>
 </div>
 
 <input type="file" id="file" hidden onchange="uploadFile()">
@@ -135,62 +85,52 @@ button {
 <script>
 const socket = io();
 
-let name = prompt("Enter name");
+// 🔥 NAME SAVE (FIXED)
+let name = localStorage.getItem("name");
+
+if(!name){
+  name = prompt("Enter name");
+  localStorage.setItem("name", name);
+}
+
 socket.emit("join", name);
 
-/* SIDEBAR FIX */
-function openSidebar(){
-  document.getElementById("sidebar").classList.add("active");
-  document.getElementById("overlay").classList.add("active");
-}
-
-function closeSidebar(){
-  document.getElementById("sidebar").classList.remove("active");
-  document.getElementById("overlay").classList.remove("active");
-}
-
-/* SEND FIX */
+// SEND MSG
 function send(){
-  let input = document.getElementById("msg");
-  let msg = input.value.trim();
-
-  if(msg.length === 0) return;
+  let msg = document.getElementById("msg").value.trim();
+  if(!msg) return;
 
   socket.emit("send", msg);
-  input.value="";
+  document.getElementById("msg").value="";
 }
 
-/* ENTER KEY SUPPORT */
-document.getElementById("msg").addEventListener("keypress", function(e){
-  if(e.key === "Enter"){
-    send();
-  }
+document.getElementById("msg").addEventListener("keypress",(e)=>{
+  if(e.key==="Enter") send();
 });
 
-/* RECEIVE MSG */
-socket.on("messages", (data)=>{
+// RECEIVE MSG
+socket.on("messages",(data)=>{
   let chat = document.getElementById("chat");
   chat.innerHTML="";
 
   data.forEach(m=>{
     if(m.system){
       chat.innerHTML += `<div style="text-align:center;color:gray">${m.text}</div>`;
-    }
-    else{
-      let side = (m.user === name) ? "msg-right" : "msg-left";
+    } else {
+      let side = m.user===name ? "msg-right" : "msg-left";
 
       if(m.file){
         chat.innerHTML += `
-          <div class="${side}">
-            <div class="username">${m.user}</div>
-            <img src="${m.file}">
-          </div>`;
+        <div class="${side}">
+          <b>${m.user}</b><br>
+          <img src="${m.file}">
+        </div>`;
       } else {
         chat.innerHTML += `
-          <div class="${side}">
-            <div class="username">${m.user}</div>
-            ${m.text}
-          </div>`;
+        <div class="${side}">
+          <b>${m.user}</b><br>
+          ${m.text}
+        </div>`;
       }
     }
   });
@@ -198,33 +138,6 @@ socket.on("messages", (data)=>{
   chat.scrollTop = chat.scrollHeight;
 });
 
-socket.on("users", (u)=>{
-  document.getElementById("users").innerHTML = u.join("<br>");
-});
-
-/* FILE */
-function openFile(){
-  document.getElementById("file").click();
-}
-
-function uploadFile(){
-  let file = document.getElementById("file").files[0];
-  if(!file) return;
-
-  let form = new FormData();
-  form.append("file", file);
-
-  let xhr = new XMLHttpRequest();
-
-  xhr.onload = ()=>{
-    let res = JSON.parse(xhr.response);
-    socket.emit("file", res.file);
-  };
-
-  xhr.open("POST","/upload");
-  xhr.send(form);
-}
-</script>
-
-</body>
-</html>
+// FILE PICK
+function pickFile(){
+  document.getElementById("file").
