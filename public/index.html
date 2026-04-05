@@ -5,134 +5,103 @@
 <title>ChatBubble</title>
 
 <style>
-body{
-  margin:0;
-  font-family:sans-serif;
-  background:#0b1c24;
-  overflow:hidden;
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f2027;
+  color: white;
 }
 
 /* HEADER */
-.header{
-  height:50px;
-  background:#1f2f38;
-  color:white;
-  display:flex;
-  align-items:center;
-  padding:0 10px;
-  justify-content:space-between;
+.header {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #203a43;
 }
 
-.menu{
-  font-size:22px;
-  cursor:pointer;
+.menu-btn {
+  font-size: 22px;
+  cursor: pointer;
+  margin-right: 10px;
 }
 
 /* SIDEBAR */
-.sidebar{
-  position:fixed;
-  left:-220px;
-  top:0;
-  width:220px;
-  height:100%;
-  background:#18262e;
-  transition:0.3s;
-  padding:10px;
-  z-index:10;
+.sidebar {
+  position: fixed;
+  left: -220px;
+  top: 0;
+  width: 200px;
+  height: 100%;
+  background: #1b2b34;
+  padding: 10px;
+  transition: 0.3s;
 }
 
-.sidebar.active{
-  left:0;
+.sidebar.active {
+  left: 0;
 }
 
 /* CHAT */
-.chat{
-  position:absolute;
-  top:50px;
-  bottom:60px;
-  left:0;
-  right:0;
-  overflow-y:auto;
-  padding:10px;
+.chat {
+  height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: 10px;
 }
 
-/* MESSAGE */
-.msg{
-  max-width:70%;
-  padding:8px;
-  margin:5px;
-  border-radius:10px;
+.msg {
+  margin: 5px;
+  padding: 8px;
+  border-radius: 10px;
+  max-width: 70%;
 }
 
-.me{
-  background:#00a884;
-  margin-left:auto;
+.me {
+  background: #00c853;
+  margin-left: auto;
 }
 
-.other{
-  background:#23343c;
-}
-
-/* IMAGE */
-.chat-img{
-  max-width:150px;
-  border-radius:10px;
-  cursor:pointer;
+.other {
+  background: #263238;
 }
 
 /* INPUT */
-.input{
-  position:absolute;
-  bottom:0;
-  left:0;
-  right:0;
-  height:60px;
-  background:#1f2f38;
-  display:flex;
-  align-items:center;
-  padding:5px;
+.input-box {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  background: #203a43;
+  padding: 5px;
 }
 
-.input input{
-  flex:1;
-  height:40px;
-  border:none;
-  border-radius:20px;
-  padding:0 10px;
+input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: none;
 }
 
-.send{
-  background:#00a884;
-  border:none;
-  color:white;
-  padding:10px;
-  border-radius:50%;
-  margin-left:5px;
+button {
+  margin-left: 5px;
+  padding: 10px;
+  border: none;
+  border-radius: 50%;
+  background: #00c853;
+  color: white;
+}
+
+/* IMAGE */
+.chat-img {
+  max-width: 150px;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
 /* PROGRESS */
-.progress{
-  position:absolute;
-  bottom:65px;
-  left:10px;
-  color:white;
-}
-
-/* IMAGE VIEW */
-.viewer{
-  display:none;
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:black;
-  justify-content:center;
-  align-items:center;
-}
-
-.viewer img{
-  max-width:90%;
+.progress {
+  font-size: 12px;
+  color: yellow;
 }
 </style>
 </head>
@@ -140,136 +109,129 @@ body{
 <body>
 
 <div class="header">
-  <div class="menu" onclick="toggleSidebar()">☰ ChatBubble</div>
-  <div>💬 🔔 👤</div>
+  <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+  <h3>ChatBubble</h3>
 </div>
 
-<div id="sidebar" class="sidebar">
-  <h3>Users</h3>
-  <div id="users"></div>
+<div class="sidebar" id="sidebar">
+  <h4>Users</h4>
+  <ul id="users"></ul>
 </div>
 
-<div id="chat" class="chat"></div>
+<div class="chat" id="chat"></div>
 
-<div class="progress" id="progress"></div>
-
-<div class="input">
+<div class="input-box">
   <input id="msg" placeholder="Type message...">
-  <input type="file" id="file">
-  <button class="send" onclick="send()">➤</button>
-</div>
-
-<div class="viewer" id="viewer" onclick="this.style.display='none'">
-  <img id="fullImg">
+  <input type="file" id="file" style="display:none">
+  <button onclick="document.getElementById('file').click()">📎</button>
+  <button onclick="send()">➤</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-
 <script>
 const socket = io();
-let username = localStorage.getItem("name") || prompt("Enter name");
+let name = localStorage.getItem("name") || prompt("Enter name");
+localStorage.setItem("name", name);
 
-localStorage.setItem("name", username);
-socket.emit("join", {name: username});
+socket.emit("join", name);
 
-let chat = document.getElementById("chat");
-let usersDiv = document.getElementById("users");
-let progress = document.getElementById("progress");
-let viewer = document.getElementById("viewer");
-let fullImg = document.getElementById("fullImg");
+const chat = document.getElementById("chat");
 
-/* SIDEBAR */
-function toggleSidebar(){
+function addMsg(msg, me=false) {
+  const div = document.createElement("div");
+  div.className = "msg " + (me ? "me" : "other");
+
+  if (msg.type === "file") {
+    div.innerHTML = `<img src="${msg.url}" class="chat-img">`;
+  } else {
+    div.innerText = msg.user + ": " + msg.text;
+  }
+
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// receive
+socket.on("message", (msg) => {
+  addMsg(msg, msg.user === name);
+});
+
+socket.on("oldMessages", (msgs) => {
+  msgs.forEach(m => addMsg(m, m.user === name));
+});
+
+socket.on("system", (txt) => {
+  const d = document.createElement("div");
+  d.innerText = txt;
+  d.style.textAlign = "center";
+  d.style.color = "lightgreen";
+  chat.appendChild(d);
+});
+
+socket.on("users", (list) => {
+  document.getElementById("users").innerHTML =
+    list.map(u => `<li>${u}</li>`).join("");
+});
+
+// send text
+function send() {
+  const val = msg.value;
+  if (!val) return;
+
+  socket.emit("sendMessage", { text: val });
+  msg.value = "";
+}
+
+// upload file
+document.getElementById("file").onchange = async (e) => {
+  const file = e.target.files[0];
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const progress = document.createElement("div");
+  progress.className = "progress";
+  progress.innerText = "Uploading 0%";
+  chat.appendChild(progress);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/upload");
+
+  xhr.upload.onprogress = (e) => {
+    let percent = Math.round((e.loaded / e.total) * 100);
+    progress.innerText = "Uploading " + percent + "%";
+  };
+
+  xhr.onload = () => {
+    const res = JSON.parse(xhr.response);
+    progress.remove();
+
+    socket.emit("sendMessage", {
+      type: "file",
+      url: res.url
+    });
+  };
+
+  xhr.send(formData);
+};
+
+// sidebar toggle
+function toggleSidebar() {
   document.getElementById("sidebar").classList.toggle("active");
 }
 
-/* SEND MSG */
-function send(){
-  let msg = document.getElementById("msg").value;
-  if(!msg) return;
-
-  socket.emit("message", msg);
-  addMsg("me", username + ": " + msg);
-
-  document.getElementById("msg").value="";
-}
-
-/* RECEIVE MSG */
-socket.on("message", data=>{
-  addMsg("other", data.user + ": " + data.text);
+// image zoom
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("chat-img")) {
+    const modal = document.createElement("div");
+    modal.style = `
+      position:fixed;top:0;left:0;width:100%;height:100%;
+      background:black;display:flex;align-items:center;justify-content:center;
+    `;
+    modal.innerHTML = `<img src="${e.target.src}" style="max-width:90%">`;
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+  }
 });
-
-/* USERS */
-socket.on("users", data=>{
-  usersDiv.innerHTML="";
-  Object.values(data).forEach(u=>{
-    let d=document.createElement("div");
-    d.innerText=u.name;
-    usersDiv.appendChild(d);
-  });
-});
-
-/* SYSTEM */
-socket.on("system", d=>{
-  addMsg("other", d.text);
-});
-
-/* IMAGE RECEIVE */
-socket.on("image", d=>{
-  addImage("other", d.src);
-});
-
-/* ADD MSG */
-function addMsg(type,text){
-  let d=document.createElement("div");
-  d.className="msg "+type;
-  d.innerText=text;
-  chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
-}
-
-/* ADD IMAGE */
-function addImage(type,src){
-  let d=document.createElement("div");
-  d.className="msg "+type;
-
-  let img=document.createElement("img");
-  img.src=src;
-  img.className="chat-img";
-
-  img.onclick=()=>{
-    viewer.style.display="flex";
-    fullImg.src=src;
-  };
-
-  d.appendChild(img);
-  chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
-}
-
-/* FILE UPLOAD */
-document.getElementById("file").onchange=()=>{
-  let f=document.getElementById("file").files[0];
-  if(!f) return;
-
-  let xhr=new XMLHttpRequest();
-  let form=new FormData();
-
-  form.append("file",f);
-  form.append("user",username);
-
-  xhr.upload.onprogress=(e)=>{
-    let p=Math.round((e.loaded/e.total)*100);
-    progress.innerText="Uploading "+p+"%";
-  };
-
-  xhr.onload=()=>{
-    progress.innerText="";
-  };
-
-  xhr.open("POST","/upload");
-  xhr.send(form);
-};
 </script>
 
 </body>
