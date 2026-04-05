@@ -3,91 +3,62 @@ const http = require("http");
 const { Server } = require("socket.io");
 const multer = require("multer");
 const path = require("path");
-const compression = require("compression");
 
 const app = express();
-app.use(compression());
-
 const server = http.createServer(app);
-const io = new Server(server, {
-  pingTimeout: 60000,
-  cors: { origin: "*" }
-});
+const io = new Server(server);
 
-/* STATIC */
 app.use(express.static("public"));
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-/* USERS */
-let users = {};
-
-/* FILE UPLOAD SETUP */
+// ===== Multer setup =====
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "public/uploads/");
-  },
-  filename: function (req, file, cb) {
-    const unique = Date.now() + "-" + Math.random();
-    cb(null, unique + path.extname(file.originalname));
-  }
+  destination: (req, file, cb) => cb(null, "public/uploads/"),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + "-" + file.originalname),
 });
 
 const upload = multer({ storage });
 
-/* UPLOAD ROUTE */
+// ===== Upload API =====
 app.post("/upload", upload.single("file"), (req, res) => {
-  try {
-    const fileUrl = "/uploads/" + req.file.filename;
-
-    io.emit("image", {
-      user: req.body.user,
-      src: fileUrl
-    });
-
-    res.sendStatus(200);
-  } catch (e) {
-    console.log("Upload error:", e);
-    res.sendStatus(500);
-  }
+  res.json({ url: "/uploads/" + req.file.filename });
 });
 
-/* SOCKET */
+// ===== Chat logic =====
+let users = {};
+let messages = [];
+
 io.on("connection", (socket) => {
+  socket.on("join", (name) => {
+    users[socket.id] = name;
 
-  socket.on("join", (data) => {
-    users[socket.id] = { name: data.name };
-
-    io.emit("system", {
-      text: data.name + " joined the room"
-    });
-
-    io.emit("users", users);
+    io.emit("system", `${name} joined`);
+    io.emit("users", Object.values(users));
+    socket.emit("oldMessages", messages);
   });
 
-  socket.on("message", (msg) => {
-    if (!users[socket.id]) return;
+  socket.on("sendMessage", (data) => {
+    const msg = {
+      user: users[socket.id],
+      ...data,
+    };
 
-    io.emit("message", {
-      user: users[socket.id].name,
-      text: msg
-    });
+    messages.push(msg);
+
+    // only last 20 messages
+    if (messages.length > 20) messages.shift();
+
+    io.emit("message", msg);
   });
 
   socket.on("disconnect", () => {
-    if (!users[socket.id]) return;
-
-    io.emit("system", {
-      text: users[socket.id].name + " left"
-    });
-
+    const name = users[socket.id];
     delete users[socket.id];
-    io.emit("users", users);
+
+    io.emit("system", `${name} left`);
+    io.emit("users", Object.values(users));
   });
-
 });
 
-/* PORT (IMPORTANT) */
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+server.listen(3000, () => console.log("Server running on 3000"));
