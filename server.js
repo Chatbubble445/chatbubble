@@ -18,11 +18,19 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname),
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
+});
 
 // ===== Upload API =====
-app.post("/upload", upload.single("file"), (req, res) => {
-  res.json({ url: "/uploads/" + req.file.filename });
+app.post("/upload", (req, res) => {
+  upload.single("file")(req, res, function (err) {
+    if (err || !req.file) {
+      return res.status(400).json({ error: "Upload failed" });
+    }
+    res.json({ url: "/uploads/" + req.file.filename });
+  });
 });
 
 // ===== Chat =====
@@ -47,7 +55,7 @@ io.on("connection", (socket) => {
 
     messages.push(msg);
 
-    // last 20 messages only
+    // only last 20 messages
     if (messages.length > 20) messages.shift();
 
     io.emit("message", msg);
