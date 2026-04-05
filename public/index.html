@@ -14,8 +14,9 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   align-items:center;
 }
 
-.menu { cursor:pointer; font-size:20px; }
+.menu { cursor:pointer; font-size:22px; }
 
+/* SIDEBAR */
 .sidebar {
   position:fixed;
   left:-220px;
@@ -25,10 +26,24 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   background:#2b3e46;
   padding:15px;
   transition:0.3s;
+  z-index:1000;
 }
 
 .sidebar.active { left:0; }
 
+/* OVERLAY */
+.overlay {
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  z-index:999;
+}
+
+.overlay.active { display:block; }
+
+/* CHAT */
 .chat {
   height:80vh;
   overflow:auto;
@@ -37,7 +52,6 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   flex-direction:column;
 }
 
-/* LEFT (others) */
 .msg-left {
   background:#1f3a44;
   padding:8px;
@@ -47,7 +61,6 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   align-self:flex-start;
 }
 
-/* RIGHT (you) */
 .msg-right {
   background:#16a34a;
   padding:8px;
@@ -65,9 +78,9 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
 img {
   max-width:150px;
   border-radius:10px;
-  cursor:pointer;
 }
 
+/* INPUT */
 .inputBox {
   display:flex;
   padding:10px;
@@ -84,20 +97,19 @@ button {
   margin-left:5px;
   border:none;
   border-radius:50%;
-  width:40px;
-  height:40px;
+  width:45px;
+  height:45px;
   background:#16a34a;
   color:white;
+  font-size:18px;
 }
-
-#progress { font-size:12px; }
 </style>
 </head>
 
 <body>
 
 <div class="topbar">
-  <span class="menu" onclick="toggle()">☰</span>
+  <span class="menu" onclick="openSidebar()">☰</span>
   <span style="margin-left:10px;">ChatBubble</span>
 </div>
 
@@ -106,14 +118,14 @@ button {
   <div id="users"></div>
 </div>
 
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
 <div class="chat" id="chat"></div>
 
-<div id="progress"></div>
-
 <div class="inputBox">
-  <button onclick="openFile()">+</button>
+  <button type="button" onclick="openFile()">+</button>
   <input id="msg" placeholder="Type message">
-  <button onclick="send()">➤</button>
+  <button type="button" onclick="send()">➤</button>
 </div>
 
 <input type="file" id="file" hidden onchange="uploadFile()">
@@ -126,41 +138,60 @@ const socket = io();
 let name = prompt("Enter name");
 socket.emit("join", name);
 
-function toggle(){
-  document.getElementById("sidebar").classList.toggle("active");
+/* SIDEBAR FIX */
+function openSidebar(){
+  document.getElementById("sidebar").classList.add("active");
+  document.getElementById("overlay").classList.add("active");
 }
 
+function closeSidebar(){
+  document.getElementById("sidebar").classList.remove("active");
+  document.getElementById("overlay").classList.remove("active");
+}
+
+/* SEND FIX */
 function send(){
-  let msg = document.getElementById("msg").value;
-  if(msg){
-    socket.emit("send", msg);
-    document.getElementById("msg").value="";
-  }
+  let input = document.getElementById("msg");
+  let msg = input.value.trim();
+
+  if(msg.length === 0) return;
+
+  socket.emit("send", msg);
+  input.value="";
 }
 
+/* ENTER KEY SUPPORT */
+document.getElementById("msg").addEventListener("keypress", function(e){
+  if(e.key === "Enter"){
+    send();
+  }
+});
+
+/* RECEIVE MSG */
 socket.on("messages", (data)=>{
   let chat = document.getElementById("chat");
   chat.innerHTML="";
 
   data.forEach(m=>{
-    let side = m.user === name ? "msg-right" : "msg-left";
-
     if(m.system){
-      chat.innerHTML += "<div>"+m.text+"</div>";
-    }
-    else if(m.file){
-      chat.innerHTML += `
-        <div class="${side}">
-          <div class="username">${m.user}</div>
-          <img src="${m.file}" onclick="openImg('${m.file}')">
-        </div>`;
+      chat.innerHTML += `<div style="text-align:center;color:gray">${m.text}</div>`;
     }
     else{
-      chat.innerHTML += `
-        <div class="${side}">
-          <div class="username">${m.user}</div>
-          ${m.text}
-        </div>`;
+      let side = (m.user === name) ? "msg-right" : "msg-left";
+
+      if(m.file){
+        chat.innerHTML += `
+          <div class="${side}">
+            <div class="username">${m.user}</div>
+            <img src="${m.file}">
+          </div>`;
+      } else {
+        chat.innerHTML += `
+          <div class="${side}">
+            <div class="username">${m.user}</div>
+            ${m.text}
+          </div>`;
+      }
     }
   });
 
@@ -171,7 +202,7 @@ socket.on("users", (u)=>{
   document.getElementById("users").innerHTML = u.join("<br>");
 });
 
-// FILE
+/* FILE */
 function openFile(){
   document.getElementById("file").click();
 }
@@ -181,3 +212,19 @@ function uploadFile(){
   if(!file) return;
 
   let form = new FormData();
+  form.append("file", file);
+
+  let xhr = new XMLHttpRequest();
+
+  xhr.onload = ()=>{
+    let res = JSON.parse(xhr.response);
+    socket.emit("file", res.file);
+  };
+
+  xhr.open("POST","/upload");
+  xhr.send(form);
+}
+</script>
+
+</body>
+</html>
