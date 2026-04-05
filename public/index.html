@@ -14,7 +14,7 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   align-items:center;
 }
 
-.menu { font-size:20px; cursor:pointer; }
+.menu { cursor:pointer; font-size:20px; }
 
 .sidebar {
   position:fixed;
@@ -33,15 +33,39 @@ body { margin:0; font-family:sans-serif; background:#0c1b22; color:white; }
   height:80vh;
   overflow:auto;
   padding:10px;
+  display:flex;
+  flex-direction:column;
 }
 
-.msg {
+/* LEFT (others) */
+.msg-left {
+  background:#1f3a44;
+  padding:8px;
+  border-radius:10px;
+  margin:5px;
+  max-width:70%;
+  align-self:flex-start;
+}
+
+/* RIGHT (you) */
+.msg-right {
   background:#16a34a;
   padding:8px;
   border-radius:10px;
   margin:5px;
   max-width:70%;
-  margin-left:auto;
+  align-self:flex-end;
+}
+
+.username {
+  font-size:11px;
+  opacity:0.7;
+}
+
+img {
+  max-width:150px;
+  border-radius:10px;
+  cursor:pointer;
 }
 
 .inputBox {
@@ -66,15 +90,7 @@ button {
   color:white;
 }
 
-img {
-  max-width:150px;
-  border-radius:10px;
-  cursor:pointer;
-}
-
-#progress {
-  font-size:12px;
-}
+#progress { font-size:12px; }
 </style>
 </head>
 
@@ -127,14 +143,24 @@ socket.on("messages", (data)=>{
   chat.innerHTML="";
 
   data.forEach(m=>{
+    let side = m.user === name ? "msg-right" : "msg-left";
+
     if(m.system){
       chat.innerHTML += "<div>"+m.text+"</div>";
-    } else if(m.file){
-      chat.innerHTML += `<div class="msg">
-        <img src="${m.file}" onclick="openImg('${m.file}')">
-      </div>`;
-    } else {
-      chat.innerHTML += `<div class="msg">${m.user}: ${m.text}</div>`;
+    }
+    else if(m.file){
+      chat.innerHTML += `
+        <div class="${side}">
+          <div class="username">${m.user}</div>
+          <img src="${m.file}" onclick="openImg('${m.file}')">
+        </div>`;
+    }
+    else{
+      chat.innerHTML += `
+        <div class="${side}">
+          <div class="username">${m.user}</div>
+          ${m.text}
+        </div>`;
     }
   });
 
@@ -155,31 +181,3 @@ function uploadFile(){
   if(!file) return;
 
   let form = new FormData();
-  form.append("file", file);
-
-  let xhr = new XMLHttpRequest();
-
-  xhr.upload.onprogress = (e)=>{
-    let percent = Math.round((e.loaded/e.total)*100);
-    document.getElementById("progress").innerHTML = percent+"%";
-  };
-
-  xhr.onload = ()=>{
-    let res = JSON.parse(xhr.response);
-    socket.emit("file", res.file);
-    document.getElementById("progress").innerHTML="";
-  };
-
-  xhr.open("POST","/upload");
-  xhr.send(form);
-}
-
-// FULL IMAGE VIEW
-function openImg(src){
-  let win = window.open("");
-  win.document.write("<img src='"+src+"' style='width:100%'>");
-}
-</script>
-
-</body>
-</html>
