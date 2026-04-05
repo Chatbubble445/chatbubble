@@ -13,7 +13,7 @@ app.use("/uploads", express.static("public/uploads"));
 let users = [];
 let messages = [];
 
-// ===== Upload Setup =====
+// Upload setup
 const storage = multer.diskStorage({
   destination: "public/uploads/",
   filename: (req, file, cb) => {
@@ -22,12 +22,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ===== Upload API =====
 app.post("/upload", upload.single("file"), (req, res) => {
   res.json({ file: "/uploads/" + req.file.filename });
 });
 
-// ===== Socket =====
+// Socket
 io.on("connection", (socket) => {
 
   socket.on("join", (name) => {
@@ -63,6 +62,5 @@ io.on("connection", (socket) => {
 
 });
 
-// ===== PORT FIX =====
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log("Server running " + PORT));
