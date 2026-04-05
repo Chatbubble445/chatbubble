@@ -7,34 +7,39 @@
 <style>
 body { margin:0; background:#0c1b22; color:white; font-family:sans-serif; }
 
-.chat {
-  height:75vh;
-  overflow:auto;
+.topbar {
+  background:#1f3a44;
   padding:10px;
   display:flex;
-  flex-direction:column;
+  justify-content:space-between;
+  align-items:center;
 }
 
-.msg-left {
+.menu { font-size:22px; cursor:pointer; }
+
+.sidebar {
+  position:fixed;
+  top:0;
+  left:-200px;
+  width:200px;
+  height:100%;
+  background:#1f3a44;
+  padding:10px;
+  transition:0.3s;
+}
+
+.sidebar.open { left:0; }
+
+.chat {
+  height:70vh;
+  overflow:auto;
+  padding:10px;
+}
+
+.msg {
   background:#1f3a44;
   margin:5px;
   padding:8px;
-  border-radius:10px;
-  max-width:70%;
-  align-self:flex-start;
-}
-
-.msg-right {
-  background:#16a34a;
-  margin:5px;
-  padding:8px;
-  border-radius:10px;
-  max-width:70%;
-  align-self:flex-end;
-}
-
-img {
-  max-width:150px;
   border-radius:10px;
 }
 
@@ -60,14 +65,22 @@ button {
   margin-left:5px;
 }
 
-#progress {
-  text-align:center;
-  font-size:12px;
-}
+img { max-width:150px; border-radius:10px; }
 </style>
 </head>
 
 <body>
+
+<div class="topbar">
+  <span class="menu" onclick="toggleSidebar()">☰</span>
+  <b>ChatBubble</b>
+  <button onclick="logout()">⎋</button>
+</div>
+
+<div class="sidebar" id="sidebar">
+  <h3>Users</h3>
+  <div id="users"></div>
+</div>
 
 <div class="chat" id="chat"></div>
 <div id="progress"></div>
@@ -81,63 +94,99 @@ button {
 <input type="file" id="file" hidden onchange="uploadFile()">
 
 <script src="/socket.io/socket.io.js"></script>
-
 <script>
 const socket = io();
 
-// 🔥 NAME SAVE (FIXED)
+// LOGIN
 let name = localStorage.getItem("name");
-
-if(!name){
+if (!name) {
   name = prompt("Enter name");
   localStorage.setItem("name", name);
 }
-
 socket.emit("join", name);
 
-// SEND MSG
+// SEND
 function send(){
-  let msg = document.getElementById("msg").value.trim();
+  let input = document.getElementById("msg");
+  let msg = input.value.trim();
   if(!msg) return;
 
-  socket.emit("send", msg);
-  document.getElementById("msg").value="";
+  socket.emit("message", msg);
+  input.value="";
 }
 
+// ENTER SEND
 document.getElementById("msg").addEventListener("keypress",(e)=>{
   if(e.key==="Enter") send();
 });
 
-// RECEIVE MSG
-socket.on("messages",(data)=>{
+// RECEIVE
+socket.on("messages",(msgs)=>{
   let chat = document.getElementById("chat");
   chat.innerHTML="";
 
-  data.forEach(m=>{
-    if(m.system){
-      chat.innerHTML += `<div style="text-align:center;color:gray">${m.text}</div>`;
-    } else {
-      let side = m.user===name ? "msg-right" : "msg-left";
-
-      if(m.file){
-        chat.innerHTML += `
-        <div class="${side}">
-          <b>${m.user}</b><br>
-          <img src="${m.file}">
-        </div>`;
-      } else {
-        chat.innerHTML += `
-        <div class="${side}">
-          <b>${m.user}</b><br>
-          ${m.text}
-        </div>`;
-      }
-    }
+  msgs.forEach(m=>{
+    chat.innerHTML += `
+    <div class="msg">
+      <b>${m.user || ""}</b><br>
+      ${m.text || ""}
+      ${m.file ? `<br><img src="${m.file}">` : ""}
+    </div>`;
   });
 
   chat.scrollTop = chat.scrollHeight;
 });
 
-// FILE PICK
+// USERS
+socket.on("users",(users)=>{
+  let list = document.getElementById("users");
+  list.innerHTML="";
+
+  users.forEach(u=>{
+    list.innerHTML += `<div>${u}</div>`;
+  });
+});
+
+// FILE
 function pickFile(){
-  document.getElementById("file").
+  document.getElementById("file").click();
+}
+
+function uploadFile(){
+  let file = document.getElementById("file").files[0];
+  if(!file) return;
+
+  let form = new FormData();
+  form.append("file", file);
+
+  let xhr = new XMLHttpRequest();
+
+  xhr.upload.onprogress = (e)=>{
+    let p = Math.round((e.loaded/e.total)*100);
+    document.getElementById("progress").innerText = p + "%";
+  };
+
+  xhr.onload = ()=>{
+    let res = JSON.parse(xhr.responseText);
+    socket.emit("file", res.url);
+    document.getElementById("progress").innerText="";
+  };
+
+  xhr.open("POST","/upload");
+  xhr.send(form);
+}
+
+// SIDEBAR FIX
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("open");
+}
+
+// LOGOUT FIX
+function logout(){
+  localStorage.removeItem("name");
+  location.reload();
+}
+</script>
+
+</body>
+</html>
