@@ -11,9 +11,9 @@ body{
   color:white;
 }
 
-/* TOP */
+/* TOP BAR */
 #top{
-  height:50px;
+  height:55px;
   background:#202c33;
   display:flex;
   align-items:center;
@@ -21,16 +21,7 @@ body{
   padding:0 10px;
 }
 
-#menuBtn{cursor:pointer;font-size:22px}
-
-/* OVERLAY */
-#overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.5);
-  display:none;
-  z-index:999;
-}
+#menuBtn{font-size:22px;cursor:pointer}
 
 /* SIDEBAR */
 #sidebar{
@@ -45,17 +36,20 @@ body{
   padding:10px;
 }
 
-#sidebar.active{
-  left:0;
+#sidebar.active{left:0}
+
+#overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  display:none;
 }
 
-#overlay.active{
-  display:block;
-}
+#overlay.active{display:block}
 
 /* CHAT */
 #chat{
-  height:calc(100vh - 110px);
+  height:calc(100vh - 115px);
   overflow-y:auto;
   padding:10px;
   display:flex;
@@ -69,8 +63,8 @@ body{
   max-width:75%;
 }
 
-.me{background:#005c4b;align-self:flex-end;}
-.other{background:#202c33;}
+.me{background:#005c4b;align-self:flex-end}
+.other{background:#202c33}
 
 .system{
   text-align:center;
@@ -85,45 +79,20 @@ body{
   cursor:pointer;
 }
 
-/* VIEWER */
-#viewer{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.95);
-  display:none;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-  z-index:2000;
-}
-
-#viewer img{
-  max-width:90%;
-  max-height:80%;
-}
-
-#closeBtn{
-  margin-top:15px;
-  padding:10px 20px;
-  background:red;
-  border:none;
-  color:white;
-}
-
 /* INPUT */
 #inputBox{
   height:60px;
   display:flex;
-  gap:5px;
   padding:8px;
+  gap:5px;
   background:#202c33;
 }
 
 #msg{
   flex:1;
-  padding:10px;
   border-radius:20px;
   border:none;
+  padding:10px;
 }
 
 #sendBtn{
@@ -134,7 +103,37 @@ body{
   color:white;
 }
 
-#file{display:none;}
+/* PROGRESS */
+#progress{
+  position:fixed;
+  bottom:70px;
+  left:10px;
+  background:#00a884;
+  padding:5px 10px;
+  border-radius:5px;
+}
+
+/* VIEWER */
+#viewer{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.95);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+}
+
+#viewer img{
+  max-width:90%;
+}
+
+#closeBtn{
+  margin-top:10px;
+  padding:8px 20px;
+  background:red;
+  border:none;
+}
 
 </style>
 </head>
@@ -157,12 +156,11 @@ body{
 
 <div id="inputBox">
   <input id="msg" placeholder="Type message...">
-  <input type="file" id="file" accept="image/*,image/gif">
-  <button onclick="pick()">📎</button>
-  <button id="sendBtn" onclick="sendMsg()">➤</button>
+  <input type="file" id="file" accept="image/*,image/gif" hidden>
+  <button onclick="file.click()">📎</button>
+  <button id="sendBtn">➤</button>
 </div>
 
-<!-- VIEWER -->
 <div id="viewer">
   <img id="fullImg">
   <button id="closeBtn">Close</button>
@@ -182,40 +180,45 @@ if(!username){
 }
 socket.emit("join",{name:username});
 
-/* SIDEBAR FIX */
-const sidebar=document.getElementById("sidebar");
-const overlay=document.getElementById("overlay");
-
-document.getElementById("menuBtn").onclick=()=>{
+/* SIDEBAR */
+menuBtn.onclick=()=>{
   sidebar.classList.add("active");
   overlay.classList.add("active");
 };
-
 overlay.onclick=()=>{
   sidebar.classList.remove("active");
   overlay.classList.remove("active");
 };
 
 /* MESSAGE */
+sendBtn.onclick=()=>{
+  let text=msg.value.trim();
+  if(!text)return;
+  socket.emit("message",text);
+  msg.value="";
+};
+
+/* TYPING */
+msg.oninput=()=>{
+  socket.emit("typing",username);
+};
+
+/* ADD MSG */
 function addMsg(type,text){
-  let div=document.createElement("div");
-  div.className="msg "+type;
-  div.innerText=text;
-  chat.appendChild(div);
+  let d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerText=text;
+  chat.appendChild(d);
   chat.scrollTop=chat.scrollHeight;
 }
 
-/* IMAGE / GIF */
+/* IMAGE */
 function addImage(type,src){
-  let div=document.createElement("div");
-  div.className="msg "+type;
+  let d=document.createElement("div");
+  d.className="msg "+type;
 
   let img=document.createElement("img");
   img.src=src;
-
-  // 🔥 GIF FIX → force reload
-  img.onload=()=>{ img.src = src; }
-
   img.className="chat-img";
 
   img.onclick=()=>{
@@ -223,93 +226,88 @@ function addImage(type,src){
     fullImg.src=src;
   };
 
-  div.appendChild(img);
-  chat.appendChild(div);
-  chat.scrollTop=chat.scrollHeight;
+  d.appendChild(img);
+  chat.appendChild(d);
 }
 
-/* SEND MSG */
-function sendMsg(){
-  let text=msg.value.trim();
-  if(!text)return;
-  socket.emit("message",text);
-  msg.value="";
-}
-
-/* FILE PICK */
-function pick(){
-  file.click();
-}
-
-/* 🔥 GIF + IMAGE FIX */
+/* UPLOAD */
 file.onchange=()=>{
   let f=file.files[0];
-  if(!f)return;
+  let xhr=new XMLHttpRequest();
+  let form=new FormData();
 
-  let reader=new FileReader();
+  form.append("file",f);
+  form.append("user",username);
 
-  reader.onload=e=>{
-    // GIF direct send (no compress)
-    if(f.type==="image/gif"){
-      socket.emit("image", e.target.result);
-    }else{
-      // image compress
-      let img=new Image();
-      img.onload=()=>{
-        let canvas=document.createElement("canvas");
-        let ctx=canvas.getContext("2d");
-
-        let scale=400/img.width;
-        canvas.width=400;
-        canvas.height=img.height*scale;
-
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        socket.emit("image", canvas.toDataURL("image/jpeg",0.6));
-      };
-      img.src=e.target.result;
-    }
+  xhr.upload.onprogress=(e)=>{
+    let p=Math.round((e.loaded/e.total)*100);
+    showProgress(p);
   };
 
-  reader.readAsDataURL(f);
+  xhr.onload=()=>showProgress(0);
+
+  xhr.open("POST","/upload");
+  xhr.send(form);
 };
 
-/* VIEWER CLOSE FIX */
-const viewer=document.getElementById("viewer");
-const fullImg=document.getElementById("fullImg");
+/* PROGRESS */
+function showProgress(p){
+  let bar=document.getElementById("progress");
 
-document.getElementById("closeBtn").onclick=()=>{
-  viewer.style.display="none";
-};
-
-viewer.onclick=(e)=>{
-  if(e.target===viewer){
-    viewer.style.display="none";
+  if(p===0){
+    if(bar)bar.remove();
+    return;
   }
+
+  if(!bar){
+    bar=document.createElement("div");
+    bar.id="progress";
+    document.body.appendChild(bar);
+  }
+
+  bar.innerText="Uploading "+p+"%";
+}
+
+/* VIEWER */
+closeBtn.onclick=()=>viewer.style.display="none";
+viewer.onclick=e=>{
+  if(e.target===viewer) viewer.style.display="none";
 };
 
 /* SOCKET */
-socket.on("message",(d)=>{
+socket.on("message",d=>{
   addMsg(d.user===username?"me":"other", d.user+": "+d.text);
 });
 
-socket.on("image",(d)=>{
+socket.on("image",d=>{
   addImage(d.user===username?"me":"other", d.src);
 });
 
-socket.on("system",(d)=>{
+socket.on("typing",u=>{
+  let t=document.getElementById("typing");
+  if(!t){
+    t=document.createElement("div");
+    t.id="typing";
+    t.className="system";
+    chat.appendChild(t);
+  }
+  t.innerText=u+" is typing...";
+  setTimeout(()=>t.remove(),1000);
+});
+
+socket.on("system",d=>{
   let div=document.createElement("div");
   div.className="system";
   div.innerText=d.text;
   chat.appendChild(div);
 });
 
-socket.on("users",(u)=>{
-  let ul=document.getElementById("users");
-  ul.innerHTML="";
-  Object.values(u).forEach(user=>{
+socket.on("users",u=>{
+  users.innerHTML="";
+  Object.values(u).forEach(x=>{
     let li=document.createElement("li");
-    li.innerText=user.name;
-    ul.appendChild(li);
+    li.innerText=x.name;
+    users.appendChild(li);
   });
 });
 
