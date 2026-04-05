@@ -2,206 +2,222 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBubble</title>
 
 <style>
 body{
   margin:0;
   font-family:sans-serif;
-  background:#0b141a;
-  color:white;
+  background:#0b1c24;
+  overflow:hidden;
 }
 
-/* TOP BAR */
-#top{
-  height:55px;
-  background:#202c33;
+/* HEADER */
+.header{
+  height:50px;
+  background:#1f2f38;
+  color:white;
   display:flex;
   align-items:center;
-  justify-content:space-between;
   padding:0 10px;
+  justify-content:space-between;
 }
 
-#menuBtn{font-size:22px;cursor:pointer}
+.menu{
+  font-size:22px;
+  cursor:pointer;
+}
 
 /* SIDEBAR */
-#sidebar{
+.sidebar{
   position:fixed;
-  left:-260px;
+  left:-220px;
   top:0;
-  width:260px;
+  width:220px;
   height:100%;
-  background:#202c33;
+  background:#18262e;
   transition:0.3s;
-  z-index:1000;
   padding:10px;
+  z-index:10;
 }
 
-#sidebar.active{left:0}
-
-#overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.5);
-  display:none;
+.sidebar.active{
+  left:0;
 }
-
-#overlay.active{display:block}
 
 /* CHAT */
-#chat{
-  height:calc(100vh - 115px);
+.chat{
+  position:absolute;
+  top:50px;
+  bottom:60px;
+  left:0;
+  right:0;
   overflow-y:auto;
   padding:10px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
 }
 
+/* MESSAGE */
 .msg{
-  padding:10px;
+  max-width:70%;
+  padding:8px;
+  margin:5px;
   border-radius:10px;
-  max-width:75%;
 }
 
-.me{background:#005c4b;align-self:flex-end}
-.other{background:#202c33}
+.me{
+  background:#00a884;
+  margin-left:auto;
+}
 
-.system{
-  text-align:center;
-  font-size:12px;
-  color:#aaa;
+.other{
+  background:#23343c;
 }
 
 /* IMAGE */
 .chat-img{
-  width:120px;
+  max-width:150px;
   border-radius:10px;
   cursor:pointer;
 }
 
 /* INPUT */
-#inputBox{
+.input{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
   height:60px;
+  background:#1f2f38;
   display:flex;
-  padding:8px;
-  gap:5px;
-  background:#202c33;
+  align-items:center;
+  padding:5px;
 }
 
-#msg{
+.input input{
   flex:1;
-  border-radius:20px;
+  height:40px;
   border:none;
-  padding:10px;
+  border-radius:20px;
+  padding:0 10px;
 }
 
-#sendBtn{
-  width:45px;
-  border:none;
-  border-radius:50%;
+.send{
   background:#00a884;
+  border:none;
   color:white;
+  padding:10px;
+  border-radius:50%;
+  margin-left:5px;
 }
 
 /* PROGRESS */
-#progress{
-  position:fixed;
-  bottom:70px;
+.progress{
+  position:absolute;
+  bottom:65px;
   left:10px;
-  background:#00a884;
-  padding:5px 10px;
-  border-radius:5px;
+  color:white;
 }
 
-/* VIEWER */
-#viewer{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.95);
+/* IMAGE VIEW */
+.viewer{
   display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:black;
   justify-content:center;
   align-items:center;
-  flex-direction:column;
 }
 
-#viewer img{
+.viewer img{
   max-width:90%;
 }
-
-#closeBtn{
-  margin-top:10px;
-  padding:8px 20px;
-  background:red;
-  border:none;
-}
-
 </style>
 </head>
 
 <body>
 
-<div id="top">
-  <span id="menuBtn">☰ ChatBubble</span>
+<div class="header">
+  <div class="menu" onclick="toggleSidebar()">☰ ChatBubble</div>
   <div>💬 🔔 👤</div>
 </div>
 
-<div id="overlay"></div>
-
-<div id="sidebar">
+<div id="sidebar" class="sidebar">
   <h3>Users</h3>
-  <ul id="users"></ul>
+  <div id="users"></div>
 </div>
 
-<div id="chat"></div>
+<div id="chat" class="chat"></div>
 
-<div id="inputBox">
+<div class="progress" id="progress"></div>
+
+<div class="input">
   <input id="msg" placeholder="Type message...">
-  <input type="file" id="file" accept="image/*,image/gif" hidden>
-  <button onclick="file.click()">📎</button>
-  <button id="sendBtn">➤</button>
+  <input type="file" id="file">
+  <button class="send" onclick="send()">➤</button>
 </div>
 
-<div id="viewer">
+<div class="viewer" id="viewer" onclick="this.style.display='none'">
   <img id="fullImg">
-  <button id="closeBtn">Close</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 const socket = io();
-const chat = document.getElementById("chat");
+let username = localStorage.getItem("name") || prompt("Enter name");
 
-/* USER */
-let username = localStorage.getItem("username");
-if(!username){
-  username = prompt("Enter name") || "Guest";
-  localStorage.setItem("username", username);
-}
-socket.emit("join",{name:username});
+localStorage.setItem("name", username);
+socket.emit("join", {name: username});
+
+let chat = document.getElementById("chat");
+let usersDiv = document.getElementById("users");
+let progress = document.getElementById("progress");
+let viewer = document.getElementById("viewer");
+let fullImg = document.getElementById("fullImg");
 
 /* SIDEBAR */
-menuBtn.onclick=()=>{
-  sidebar.classList.add("active");
-  overlay.classList.add("active");
-};
-overlay.onclick=()=>{
-  sidebar.classList.remove("active");
-  overlay.classList.remove("active");
-};
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("active");
+}
 
-/* MESSAGE */
-sendBtn.onclick=()=>{
-  let text=msg.value.trim();
-  if(!text)return;
-  socket.emit("message",text);
-  msg.value="";
-};
+/* SEND MSG */
+function send(){
+  let msg = document.getElementById("msg").value;
+  if(!msg) return;
 
-/* TYPING */
-msg.oninput=()=>{
-  socket.emit("typing",username);
-};
+  socket.emit("message", msg);
+  addMsg("me", username + ": " + msg);
+
+  document.getElementById("msg").value="";
+}
+
+/* RECEIVE MSG */
+socket.on("message", data=>{
+  addMsg("other", data.user + ": " + data.text);
+});
+
+/* USERS */
+socket.on("users", data=>{
+  usersDiv.innerHTML="";
+  Object.values(data).forEach(u=>{
+    let d=document.createElement("div");
+    d.innerText=u.name;
+    usersDiv.appendChild(d);
+  });
+});
+
+/* SYSTEM */
+socket.on("system", d=>{
+  addMsg("other", d.text);
+});
+
+/* IMAGE RECEIVE */
+socket.on("image", d=>{
+  addImage("other", d.src);
+});
 
 /* ADD MSG */
 function addMsg(type,text){
@@ -212,7 +228,7 @@ function addMsg(type,text){
   chat.scrollTop=chat.scrollHeight;
 }
 
-/* IMAGE */
+/* ADD IMAGE */
 function addImage(type,src){
   let d=document.createElement("div");
   d.className="msg "+type;
@@ -228,11 +244,14 @@ function addImage(type,src){
 
   d.appendChild(img);
   chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
 
-/* UPLOAD */
-file.onchange=()=>{
-  let f=file.files[0];
+/* FILE UPLOAD */
+document.getElementById("file").onchange=()=>{
+  let f=document.getElementById("file").files[0];
+  if(!f) return;
+
   let xhr=new XMLHttpRequest();
   let form=new FormData();
 
@@ -241,76 +260,16 @@ file.onchange=()=>{
 
   xhr.upload.onprogress=(e)=>{
     let p=Math.round((e.loaded/e.total)*100);
-    showProgress(p);
+    progress.innerText="Uploading "+p+"%";
   };
 
-  xhr.onload=()=>showProgress(0);
+  xhr.onload=()=>{
+    progress.innerText="";
+  };
 
   xhr.open("POST","/upload");
   xhr.send(form);
 };
-
-/* PROGRESS */
-function showProgress(p){
-  let bar=document.getElementById("progress");
-
-  if(p===0){
-    if(bar)bar.remove();
-    return;
-  }
-
-  if(!bar){
-    bar=document.createElement("div");
-    bar.id="progress";
-    document.body.appendChild(bar);
-  }
-
-  bar.innerText="Uploading "+p+"%";
-}
-
-/* VIEWER */
-closeBtn.onclick=()=>viewer.style.display="none";
-viewer.onclick=e=>{
-  if(e.target===viewer) viewer.style.display="none";
-};
-
-/* SOCKET */
-socket.on("message",d=>{
-  addMsg(d.user===username?"me":"other", d.user+": "+d.text);
-});
-
-socket.on("image",d=>{
-  addImage(d.user===username?"me":"other", d.src);
-});
-
-socket.on("typing",u=>{
-  let t=document.getElementById("typing");
-  if(!t){
-    t=document.createElement("div");
-    t.id="typing";
-    t.className="system";
-    chat.appendChild(t);
-  }
-  t.innerText=u+" is typing...";
-  setTimeout(()=>t.remove(),1000);
-});
-
-socket.on("system",d=>{
-  let div=document.createElement("div");
-  div.className="system";
-  div.innerText=d.text;
-  chat.appendChild(div);
-});
-
-socket.on("users",u=>{
-  users.innerHTML="";
-  Object.values(u).forEach(x=>{
-    let li=document.createElement("li");
-    li.innerText=x.name;
-    users.appendChild(li);
-  });
-});
-
 </script>
 
 </body>
